@@ -174,14 +174,8 @@ OPENER = build_opener(ProxyHandler({}))
 LIVE_CACHE = {}
 
 def get_fallback_data():
-    """Returns a few static planes if all APIs fail, to show the engine works."""
-    return {
-        "provider": "fallback-stealth",
-        "states": [
-            ["abc123", "CYBER01", "Turkey", 0, 1710000000, 28.9, 41.0, 10000, False, 250, 45, 10000, None, 10000, "1234", False, 0],
-            ["def456", "AVIA99", "France", 0, 1710000000, 2.3, 48.8, 11000, False, 240, 180, 11000, None, 11000, "5678", False, 0]
-        ]
-    }
+    """Returns empty data when all APIs fail. No fake planes — integrity first."""
+    return {"provider": "offline", "states": []}
 
 def try_opensky_live(url):
     auth = None

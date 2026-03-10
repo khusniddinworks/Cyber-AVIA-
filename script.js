@@ -55,19 +55,33 @@ async function updateStatus() {
     }
     throw new Error("Empty payload");
   } catch (e) {
-    addLog("warn", "Server uplink blocked → engaging direct satellite link...");
+    addLog("warn", "Server uplink blocked \u2192 engaging direct satellite link...");
   }
 
-  // Fallback: Client-side direct fetch
+  // Fallback: Multi-region parallel fetch for GLOBAL coverage
   try {
-    const res = await fetch("https://api.adsb.lol/v2/lamin/30/lamax/60/lomin/-10/lomax/40");
-    const data = await res.json();
-    if (data && data.ac) {
-      const states = data.ac.map(a => [
+    const regions = [
+      "https://api.adsb.lol/v2/lamin/35/lamax/65/lomin/-15/lomax/45",
+      "https://api.adsb.lol/v2/lamin/10/lamax/55/lomin/-130/lomax/-60",
+      "https://api.adsb.lol/v2/lamin/10/lamax/50/lomin/45/lomax/100",
+      "https://api.adsb.lol/v2/lamin/10/lamax/55/lomin/100/lomax/150"
+    ];
+    const results = await Promise.allSettled(regions.map(u => fetch(u).then(r => r.json())));
+    const all = new Map();
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value && r.value.ac) {
+        for (const a of r.value.ac) {
+          if (a.hex && a.lat && a.lon) all.set(a.hex, a);
+        }
+      }
+    }
+    if (all.size > 0) {
+      const states = Array.from(all.values()).map(a => [
         a.hex, a.flight, a.r, 0, 0, a.lon, a.lat,
-        a.alt_baro, a.alt_baro === "ground", a.gs, a.track
+        a.alt_baro, a.alt_baro === "ground",
+        typeof a.gs === 'number' ? a.gs * 0.514444 : 0, a.track
       ]);
-      processTelemetry({ states, provider: "Direct-Client-Link" });
+      processTelemetry({ states, provider: `Global-Direct (${all.size} unique)` });
       return;
     }
   } catch (e) { /* silent */ }
@@ -81,7 +95,6 @@ function processTelemetry(data) {
   addLog("info", `Mapped ${count} aircraft via ${data.provider || 'primary'}`);
   if (map) renderPlanes(data.states);
 
-  // Alerts
   fetch("/api/alerts").then(r => r.json()).then(alerts => {
     document.getElementById("anomalyCount").innerText = alerts.length;
     renderAlerts(alerts);
@@ -93,7 +106,7 @@ function renderPlanes(states) {
   if (!planeGroup) return;
   planeGroup.clearLayers();
 
-  states.slice(0, 200).forEach(s => {
+  states.slice(0, 500).forEach(s => {
     const [icao, call, country, , , lon, lat, , , vel, trk] = s;
     if (!lat || !lon) return;
 
