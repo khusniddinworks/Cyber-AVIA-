@@ -507,9 +507,11 @@ def api_stats():
     by_type = db.session.query(Anomaly.type, func.count()).group_by(Anomaly.type).all()
     return jsonify({"by_type": by_type})
 
-if __name__=="__main__":
-    with app.app_context():
-        db.create_all()
-    # Start initial AI training if data exists
+# --- STARTUP LOGIC (PRODUCTION READY) ---
+with app.app_context():
+    db.create_all()
+    # Initial AI training in background to avoid blocking
     threading.Thread(target=train_ai_model, daemon=True).start()
+
+if __name__=="__main__":
     app.run(host=HOST, port=PORT, debug=DEBUG_MODE)
