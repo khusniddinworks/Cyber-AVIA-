@@ -1,0 +1,194 @@
+﻿<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flight Intel Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Sora:wght@500;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="styles.css?v=20260303-ui2" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-dot"></div>
+      <div>
+        <h1>Flight Intel</h1>
+        <p>Cyber‑avia security dashboard</p>
+      </div>
+    </div>
+
+    <nav class="toolbar">
+      <button id="navHome" class="btn ghost nav active">Home</button>
+      <button id="navAlerts" class="btn ghost nav">Alerts</button>
+      <button id="navStats" class="btn ghost nav">Stats</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="homeView" class="dashboard">
+      <aside class="panel panel-left">
+        <section class="card stats-card">
+          <div class="card-head">
+            <h2>Network Status</h2>
+            <span class="dot-online" id="statusDot"></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">API:</span>
+            <span class="stat-val">OpenSky + ADSB</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Health:</span>
+            <span id="statusText" class="stat-val ok">Stable</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Updated:</span>
+            <span id="updatedText" class="stat-val">--</span>
+          </div>
+        </section>
+
+        <section class="card pulse-card">
+          <div class="card-head">
+            <h2>Live Pulse</h2>
+          </div>
+          <div class="big-stat">
+            <span id="countPill">0</span>
+            <small>Active Flights</small>
+          </div>
+          <div class="stat-grid-mini">
+            <div>
+              <label>Avg Speed</label>
+              <strong id="avgSpeed">--</strong>
+            </div>
+            <div>
+              <label>Suspicious</label>
+              <strong id="suspiciousCount" class="warn">0</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Top Velocity</h2>
+          </div>
+          <ul id="topList" class="top-list">
+            <li>Monitoring...</li>
+          </ul>
+        </section>
+      </aside>
+
+      <section class="panel panel-map">
+        <div id="map"></div>
+        <div id="toastContainer" class="toast-container"></div>
+      </section>
+
+      <aside class="panel panel-right">
+        <section class="card">
+          <div class="card-head">
+            <h2>Aircraft Record</h2>
+            <span class="pill">History</span>
+          </div>
+
+          <label class="label" for="icaoInput">ICAO24 (hex)</label>
+          <input id="icaoInput" class="input" placeholder="Masalan: 4ca123" />
+
+          <div class="grid-2">
+            <div>
+              <label class="label" for="fromInput">From</label>
+              <input id="fromInput" class="input" type="datetime-local" />
+            </div>
+            <div>
+              <label class="label" for="toInput">To</label>
+              <input id="toInput" class="input" type="datetime-local" />
+            </div>
+          </div>
+
+          <button id="recordBtn" class="btn primary full">Find Records</button>
+          <p id="recordStatus" class="muted">Enter ICAO24 and time range.</p>
+        </section>
+
+        <section class="card record-card">
+          <div class="card-head">
+            <h2>Record Results</h2>
+            <span class="pill" id="recordCount">0</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Callsign</th>
+                  <th>Route</th>
+                  <th>Duration</th>
+                </tr>
+              </thead>
+              <tbody id="recordBody">
+                <tr>
+                  <td colspan="3" class="muted">No records</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </aside>
+    </section> <!-- end homeView -->
+
+    <section id="alertsView" class="panel-container hidden">
+      <div class="view-header">
+        <h2>Suspicious Flights / Alerts</h2>
+        <span class="pill danger" id="alertTotalPill">0 alerts</span>
+      </div>
+      <div class="table-wrap">
+        <table id="alertsTable">
+          <thead>
+            <tr>
+              <th>ICAO24</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Risk Score</th>
+              <th>Details</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="6" class="muted">No alerts yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="statsView" class="panel-container hidden">
+      <div class="view-header">
+        <h2>Anomaly Statistics</h2>
+      </div>
+      <div class="stats-grid">
+        <div class="card chart-card">
+          <div class="card-head">
+            <h3>Anomalies by Type</h3>
+          </div>
+          <canvas id="typeChart"></canvas>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head">
+            <h3>Risk Severity Distribution</h3>
+          </div>
+          <canvas id="severityChart"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="script.js?v=20260303-real"></script>
+</body>
+
+</html>
