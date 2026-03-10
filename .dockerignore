@@ -1,0 +1,16 @@
+# Docker
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+instance/
+*.db
+*.sqlite3
+.env
+*.log
+security_audit.log
+.DS_Store
+Thumbs.db
+.git
+.gitignore
+README.md

@@ -4,6 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Cyber-AVIA Intelligence Dashboard</title>
+  <meta name="description"
+    content="Real-time aviation cyber-security monitoring dashboard with AI-powered anomaly detection">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -11,64 +13,64 @@
 
 <body>
 
-  <!-- DASHBOARD LAYER -->
   <div class="app-container" id="dashboard">
-    <!-- Sidebar Left: Telemetry -->
+
+    <!-- LEFT PANEL: Telemetry -->
     <aside class="panel">
       <div class="card">
-        <div class="card-title">LIVE STATUS</div>
-        <div id="livePulse" class="stat-value">0</div>
-        <div style="font-size: 0.8rem; color: var(--text-muted);">ACTIVE AIRCRAFTS</div>
+        <div class="card-title">Live Pulse</div>
+        <div id="livePulse" class="stat-value">—</div>
+        <div class="stat-label">ACTIVE AIRCRAFT TRACKED</div>
       </div>
 
       <div class="card">
-        <div class="card-title">ANOMALIES DETECTED</div>
+        <div class="card-title">Threat Level</div>
         <div id="anomalyCount" class="stat-value" style="color: var(--danger);">0</div>
-        <div style="font-size: 0.8rem; color: var(--text-muted);">HIGH RISK EVENTS</div>
+        <div class="stat-label">ANOMALIES DETECTED</div>
       </div>
 
-      <div id="logPanel" class="card" style="flex: 1; overflow-y: auto;">
-        <div class="card-title">SECURITY LOGS</div>
-        <div id="securityLogs" style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.6;">
-          Waiting for telemetry...
+      <div class="card" style="flex: 1; min-height: 120px;">
+        <div class="card-title">System Log</div>
+        <div id="securityLogs" style="overflow-y: auto; max-height: 300px;">
+          <div class="log-line system">[BOOT] Cyber-AVIA v2.0 initializing...</div>
         </div>
       </div>
     </aside>
 
-    <!-- Center: Strategic View -->
+    <!-- CENTER: Strategic Map View -->
     <main class="main-view">
       <div class="top-nav">
         <div class="brand-title">
           <div class="brand-dot"></div>
-          <div>CYBER-AVIA <span style="font-weight: 300; font-size: 0.8rem; opacity: 0.6;">INTELLIGENCE</span></div>
+          <div>CYBER-AVIA</div>
         </div>
-        <div id="networkClock" style="font-family: monospace; font-size: 1.1rem; color: var(--brand);">00:00:00</div>
-        <div
-          style="font-size: 0.7rem; color: var(--success); border: 1px solid var(--success); padding: 4px 10px; border-radius: 4px;">
-          SYSTEM LIVE</div>
+        <div id="networkClock" class="clock">00:00:00</div>
+        <div class="status-badge">● SYSTEM ONLINE</div>
       </div>
       <div id="map"></div>
     </main>
 
-    <!-- Sidebar Right: Search & Details -->
+    <!-- RIGHT PANEL: Intelligence -->
     <aside class="panel">
       <div class="card">
-        <div class="card-title">AIRCRAFT LOOKUP</div>
-        <input type="text" id="icaoInput" class="auth-input" style="height: 38px;" placeholder="ICAO HEX (e.g. 4B0011)">
-        <button onclick="searchICAO()" class="auth-btn"
-          style="padding: 10px; background: var(--brand); color: #000;">FIND RECORD</button>
+        <div class="card-title">Aircraft Lookup</div>
+        <input type="text" id="icaoInput" class="cyber-input" placeholder="ICAO HEX (e.g. 4B0011)" maxlength="6">
+        <button onclick="searchICAO()" class="cyber-btn">FIND TARGET</button>
       </div>
 
       <div id="detailsCard" class="card" style="display: none;">
-        <div class="card-title">AIRCRAFT DATA</div>
-        <div id="detailsContent" style="font-size: 0.85rem; line-height: 1.8;"></div>
+        <div class="card-title">Target Intel</div>
+        <div id="detailsContent"></div>
       </div>
 
-      <div id="alertHistory" class="card" style="flex: 1;">
-        <div class="card-title">ALERT HISTORY</div>
-        <div id="alertList" style="font-size: 0.75rem;"></div>
+      <div class="card" style="flex: 1; min-height: 120px;">
+        <div class="card-title">Alert Feed</div>
+        <div id="alertList" style="overflow-y: auto; max-height: 400px;">
+          <div class="log-line system">Scanning airspace...</div>
+        </div>
       </div>
     </aside>
+
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

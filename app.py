@@ -10,6 +10,8 @@ from urllib.request import ProxyHandler, Request, build_opener
 
 from flask import Flask, request, jsonify, send_from_directory, abort, make_response
 from flask_sqlalchemy import SQLAlchemy
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from sqlalchemy import func
 from sklearn.ensemble import IsolationForest
 import numpy as np
@@ -79,6 +81,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+limiter = Limiter(get_remote_address, app=app, default_limits=["200 per minute"])
 
 # --- SECURITY MIDDLEWARE (Expert Level) ---
 @app.after_request
@@ -87,11 +90,15 @@ def apply_security_headers(response):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     
+    # CORS for client-side direct API fetch
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    
     # Modernized CSP
     csp = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
-        "img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com https://server.arcgisonline.com; "
+        "img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com https://server.arcgisonline.com https://*.basemaps.cartocdn.com; "
         "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "connect-src 'self' https://opensky-network.org https://api.adsb.lol; "
@@ -335,6 +342,11 @@ def detect_anomalies(flights, timestamp):
     
     return anomalies
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Render/Koyeb monitoring."""
+    return jsonify({"status": "healthy", "timestamp": time.time()})
+
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
@@ -359,6 +371,7 @@ def get_live_data_parallel(params):
     return get_fallback_data()
 
 @app.route('/api/live')
+@limiter.limit("30 per minute")
 def api_live():
     params = {}
     for k in ["lamin","lamax","lomin","lomax"]:
@@ -380,42 +393,45 @@ def api_live():
             'callsign': (r[1] or "").strip(),
             'lon': r[5],'lat':r[6],'onGround':bool(r[8]),
             'velocity': r[9],'track':r[10],
-            'altitude': r[13] or r[7],
+            'altitude': r[13] if len(r) > 13 else r[7] if len(r) > 7 else 0,
             'country': r[2] or "Unknown"
         })
-    for f in flights:
-        rec = Flight(
-            icao24=f['icao24'],country=f['country'],
-            lon=f['lon'],lat=f['lat'],altitude=f['altitude'],
-            velocity=f['velocity'],track=f['track'],on_ground=f['onGround'],
-            timestamp=now
-        )
-        rec.callsign = f['callsign'] # This triggers the encrypted setter
-        db.session.add(rec)
-    db.session.commit()
-    anomalies = detect_anomalies(flights, now)
     
-    # Optional: AI Anomaly Detection
+    # Store flights and detect anomalies in background
     try:
-        ai_anomalies = detect_ai_anomalies(flights)
-        anomalies.extend(ai_anomalies)
-    except Exception as e:
-        print(f"AI detection error: {e}")
-
-    for a in anomalies:
-        db.session.add(Anomaly(
-            icao24=a['icao24'],
-            type=a['type'],
-            severity=a['severity'],
-            risk_score=a.get('risk_score', 0),
-            details=a['details'],
-            detected_at=now
-        ))
-    if anomalies:
+        for f in flights:
+            rec = Flight(
+                icao24=f['icao24'],country=f['country'],
+                lon=f['lon'],lat=f['lat'],altitude=f['altitude'],
+                velocity=f['velocity'],track=f['track'],on_ground=f['onGround'],
+                timestamp=now
+            )
+            rec.callsign = f['callsign']
+            db.session.add(rec)
         db.session.commit()
-    return jsonify(payload)
+        
+        anomalies = detect_anomalies(flights, now)
+        
+        # AI Anomaly Detection
+        try:
+            ai_anomalies = detect_ai_anomalies(flights)
+            anomalies.extend(ai_anomalies)
+        except Exception as e:
+            logger.warning(f"AI detection error: {e}")
 
-    return anomalies
+        for a in anomalies:
+            db.session.add(Anomaly(
+                icao24=a['icao24'], type=a['type'],
+                severity=a['severity'], risk_score=a.get('risk_score', 0),
+                details=a['details'], detected_at=now
+            ))
+        if anomalies:
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"DB write error: {e}")
+    
+    return jsonify(payload)
 
 def train_ai_model():
     """Trains the model based on historical flight data."""

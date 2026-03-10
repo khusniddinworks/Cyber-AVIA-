@@ -1,5 +1,6 @@
 flask
 flask-sqlalchemy
+flask-limiter
 cryptography
 python-dotenv
 scikit-learn
@@ -7,3 +8,4 @@ numpy
 requests
 gunicorn
 psycopg2-binary
+pytest

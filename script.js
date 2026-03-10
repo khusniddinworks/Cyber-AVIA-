@@ -1,49 +1,25 @@
 ﻿let map, planeGroup;
 let updateInterval;
 
-// Initialize when DOM is ready
+// ---- STARTUP ----
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM Ready. Starting Systems...");
-  try {
-    initApp();
-  } catch (e) {
-    console.error("Critical Startup Error:", e);
-  }
+  startClock();
+  try { initMap(); } catch (e) { addLog("error", "Map subsystem failure: " + e.message); }
+  startUpdates();
+  addLog("system", "All subsystems initialized. Standby for telemetry.");
 });
 
-function initApp() {
-  // Start clock immediately - this MUST run
-  startClock();
-
-  // Try to init map
-  try {
-    initMap();
-  } catch (e) {
-    console.error("Map initialization failed. Telemetry will still run.", e);
-  }
-
-  // Start telemetry updates
-  startUpdates();
-}
-
+// ---- CLOCK ----
 function startClock() {
-  const clock = document.getElementById("networkClock");
-  if (clock) {
-    setInterval(() => {
-      clock.innerText = new Date().toLocaleTimeString();
-    }, 1000);
-  }
+  const el = document.getElementById("networkClock");
+  if (!el) return;
+  setInterval(() => { el.innerText = new Date().toLocaleTimeString(); }, 1000);
 }
 
+// ---- MAP (Professional Dark Tiles) ----
 function initMap() {
-  if (typeof L === 'undefined') {
-    throw new Error("Leaflet Library (L) not loaded. Check CSP or Internet connection.");
-  }
-
+  if (typeof L === 'undefined') throw new Error("Leaflet not loaded");
   if (map) return;
-
-  const mapEl = document.getElementById("map");
-  if (!mapEl) return;
 
   map = L.map("map", {
     zoomControl: false,
@@ -51,121 +27,138 @@ function initMap() {
     worldCopyJump: true
   }).setView([48.85, 2.35], 5);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-
-  // Apply dark mode theme
-  setTimeout(() => {
-    const container = document.querySelector('.leaflet-container');
-    if (container) {
-      container.style.filter = "invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)";
-    }
-  }, 500);
+  // CartoDB Dark Matter — proper dark map (no CSS filter hack)
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
 
   planeGroup = L.layerGroup().addTo(map);
 }
 
+// ---- TELEMETRY ----
 function startUpdates() {
   updateStatus();
   updateInterval = setInterval(updateStatus, 15000);
 }
 
 async function updateStatus() {
-  const logEl = document.getElementById("securityLogs");
-  if (logEl) logEl.innerHTML = "<div>[SYSTEM] Synchronizing with global ADS-B network...</div>" + logEl.innerHTML;
+  addLog("system", "Synchronizing with ADS-B network...");
 
   try {
     const res = await fetch("/api/live");
-    if (!res.ok) throw new Error("Backend Blocked");
-
+    if (!res.ok) throw new Error(`Server ${res.status}`);
     const data = await res.json();
     if (data && data.states) {
       processTelemetry(data);
-    } else {
-      throw new Error("Empty Data");
+      return;
     }
+    throw new Error("Empty payload");
   } catch (e) {
-    if (logEl) logEl.innerHTML = "<div style='color:orange'>[WARN] Server uplink blocked. Engaging Direct-Satellite-Link...</div>" + logEl.innerHTML;
-    tryDirectFetch();
+    addLog("warn", "Server uplink blocked → engaging direct satellite link...");
   }
-}
 
-async function tryDirectFetch() {
-  // Direct client-side fetch from the network (Bypasses server blocks)
+  // Fallback: Client-side direct fetch
   try {
-    const url = "https://api.adsb.lol/v2/lamin/30/lamax/60/lomin/-10/lomax/40";
-    const res = await fetch(url);
+    const res = await fetch("https://api.adsb.lol/v2/lamin/30/lamax/60/lomin/-10/lomax/40");
     const data = await res.json();
     if (data && data.ac) {
-      // Map API format to our state format
-      const states = data.ac.map(a => [a.hex, a.flight, a.r, 0, 0, a.lon, a.lat, a.alt_baro, a.alt_baro === "ground", a.gs, a.track]);
-      processTelemetry({ states: states, provider: "Direct-Client-Uplink" });
+      const states = data.ac.map(a => [
+        a.hex, a.flight, a.r, 0, 0, a.lon, a.lat,
+        a.alt_baro, a.alt_baro === "ground", a.gs, a.track
+      ]);
+      processTelemetry({ states, provider: "Direct-Client-Link" });
+      return;
     }
-  } catch (e) {
-    console.warn("Global network synchronization failure.");
-  }
+  } catch (e) { /* silent */ }
+
+  addLog("error", "All uplinks failed. Retrying in 15s...");
 }
 
 function processTelemetry(data) {
-  const logEl = document.getElementById("securityLogs");
   const count = data.states.length;
   document.getElementById("livePulse").innerText = count;
-  if (logEl) logEl.innerHTML = `<div style='color:var(--success)'>[INFO] Mapped ${count} units via ${data.provider || 'primary'}</div>` + logEl.innerHTML;
+  addLog("info", `Mapped ${count} aircraft via ${data.provider || 'primary'}`);
   if (map) renderPlanes(data.states);
 
-  // Try to update alerts if backend is partly accessible
+  // Alerts
   fetch("/api/alerts").then(r => r.json()).then(alerts => {
     document.getElementById("anomalyCount").innerText = alerts.length;
     renderAlerts(alerts);
   }).catch(() => { });
 }
 
+// ---- RENDER PLANES ----
 function renderPlanes(states) {
   if (!planeGroup) return;
   planeGroup.clearLayers();
 
-  states.slice(0, 150).forEach(s => {
+  states.slice(0, 200).forEach(s => {
     const [icao, call, country, , , lon, lat, , , vel, trk] = s;
-    if (lat && lon) {
-      const angle = (trk || 0) - 45;
-      const html = `<div class="plane-marker" style="transform: rotate(${angle}deg); color: #22d3ee; filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.8)); cursor: pointer;">✈</div>`;
-      const icon = L.divIcon({ html: html, className: 'plane-icon-div', iconSize: [24, 24] });
+    if (!lat || !lon) return;
 
-      const marker = L.marker([lat, lon], { icon: icon });
-      marker.bindPopup(`
-        <div style="color: #000; min-width: 120px;">
-          <b style="color: #0891b2; font-size: 1rem;">${(call || 'UNKNOWN').trim()}</b><br>
-          <div style="margin-top: 5px; border-top: 1px solid #eee; padding-top: 5px; font-size: 0.8rem;">
-            HEX: ${icao.toUpperCase()}<br>
-            SPEED: ${Math.round(vel * 3.6)} km/h<br>
-            ORIGIN: ${country || 'N/A'}
+    const angle = (trk || 0) - 45;
+    const speed = typeof vel === 'number' ? vel : 0;
+    const color = speed > 300 ? "#f43f5e" : "#22d3ee"; // Red if supersonic
+
+    const html = `<div class="plane-marker" style="transform:rotate(${angle}deg); color:${color}; filter:drop-shadow(0 0 6px ${color}); cursor:pointer;">✈</div>`;
+    const icon = L.divIcon({ html, className: 'plane-icon-div', iconSize: [22, 22] });
+
+    L.marker([lat, lon], { icon })
+      .bindPopup(`
+        <div style="min-width:140px; font-family:'Inter',sans-serif;">
+          <div style="font-weight:800; font-size:1.1rem; color:var(--brand); margin-bottom:6px;">${(call || 'UNKNOWN').trim()}</div>
+          <div style="font-size:0.8rem; line-height:1.7; border-top:1px solid var(--border); padding-top:6px;">
+            <b>HEX:</b> ${(icao || '').toUpperCase()}<br>
+            <b>SPEED:</b> ${Math.round(speed * 3.6)} km/h<br>
+            <b>ORIGIN:</b> ${country || 'N/A'}
           </div>
         </div>
-      `);
-      marker.addTo(planeGroup);
-    }
+      `)
+      .addTo(planeGroup);
   });
 }
 
+// ---- RENDER ALERTS ----
 function renderAlerts(alerts) {
-  const container = document.getElementById("alertList");
-  if (!container) return;
+  const el = document.getElementById("alertList");
+  if (!el) return;
 
   if (!alerts || alerts.length === 0) {
-    container.innerHTML = '<div style="color: #475569; font-style: italic; padding: 10px;">Scanning for threats...</div>';
+    el.innerHTML = '<div class="log-line system">Airspace clear. No threats detected.</div>';
     return;
   }
 
-  container.innerHTML = alerts.slice(0, 15).map(a => `
-    <div style="border-left: 3px solid ${a.severity === 'high' ? '#f43f5e' : '#f59e0b'}; background: rgba(0,0,0,0.4); padding: 10px; margin-bottom: 10px; border-radius: 0 8px 8px 0; border: 1px solid rgba(255,255,255,0.05);">
-      <div style="color: #f1f5f9; font-weight: bold; font-size: 0.8rem;">${a.type.replace('_', ' ').toUpperCase()}</div>
-      <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 4px;">TARGET: ${a.icao24.toUpperCase()} • RISK: ${a.risk_score}%</div>
+  el.innerHTML = alerts.slice(0, 20).map(a => `
+    <div class="alert-item ${a.severity === 'high' ? 'high' : ''}">
+      <div class="alert-type">${a.type.replace(/_/g, ' ').toUpperCase()}</div>
+      <div class="alert-meta">${a.icao24.toUpperCase()} · RISK ${a.risk_score}%</div>
     </div>
   `).join("");
 }
 
+// ---- LOGGING ----
+function addLog(type, msg) {
+  const el = document.getElementById("securityLogs");
+  if (!el) return;
+  const time = new Date().toLocaleTimeString();
+  const prefix = { system: "SYS", info: "OK ", warn: "⚠ ", error: "ERR" }[type] || "---";
+  const div = document.createElement("div");
+  div.className = `log-line ${type}`;
+  div.textContent = `[${time}] ${prefix} ${msg}`;
+  el.prepend(div);
+  // Keep max 50 log entries
+  while (el.children.length > 50) el.removeChild(el.lastChild);
+}
+
+// ---- LOOKUP ----
 async function searchICAO() {
   const icao = document.getElementById("icaoInput").value.trim().toLowerCase();
-  if (icao.length !== 6) return;
-  // Highlight on map if exists or fetch
-  console.log("Focusing on target:", icao);
+  if (icao.length !== 6) {
+    addLog("warn", "ICAO must be 6-character HEX code.");
+    return;
+  }
+  addLog("system", `Searching for target ${icao.toUpperCase()}...`);
+  document.getElementById("detailsCard").style.display = "block";
+  document.getElementById("detailsContent").innerHTML = `<div class="log-line system">Fetching intel for ${icao.toUpperCase()}...</div>`;
 }

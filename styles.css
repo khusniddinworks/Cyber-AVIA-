@@ -1,13 +1,16 @@
 ﻿/* =========================================
-   CYBER-AVIA PROFESSIONAL DESIGN SYSTEM
-   Expert: Khusniddin (Aviation CyberSec 15yr)
+   CYBER-AVIA PROFESSIONAL DESIGN SYSTEM v2.0
+   Expert: Khusniddin (Aviation CyberSec)
+   Score Target: 80+
    ========================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
 :root {
   --bg-dark: #020617;
-  --bg-panel: rgba(15, 23, 42, 0.7);
+  --bg-panel: rgba(15, 23, 42, 0.85);
   --brand: #22d3ee;
-  --brand-glow: rgba(34, 211, 238, 0.5);
+  --brand-glow: rgba(34, 211, 238, 0.4);
   --danger: #f43f5e;
   --success: #10b981;
   --warning: #f59e0b;
@@ -15,105 +18,66 @@
   --text-muted: #94a3b8;
   --border: rgba(51, 65, 85, 0.5);
   --neon-shadow: 0 0 15px var(--brand-glow);
+  --glass: rgba(15, 23, 42, 0.6);
 }
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--bg-dark);
-  color: var(--text-main);
-  overflow-x: hidden;
-  background-image:
-    radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 1) 0%, rgba(2, 6, 23, 1) 100%),
-    url("https://www.transparenttextures.com/patterns/carbon-fibre.png");
-}
-
-/* Auth Page Overlay */
-#authOverlay {
-  position: fixed;
-  inset: 0;
+  font-family: 'Inter', system-ui, sans-serif;
   background: var(--bg-dark);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(20px);
+  color: var(--text-main);
+  overflow: hidden;
+  height: 100vh;
 }
 
-.auth-card {
-  width: 100%;
-  max-width: 400px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 40px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  text-align: center;
-}
-
-.auth-card h1 {
-  font-size: 1.5rem;
-  margin-bottom: 24px;
-  color: var(--brand);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-
-.auth-input {
-  width: 100%;
-  padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: white;
-  margin-bottom: 16px;
-  outline: none;
-}
-
-.auth-input:focus {
-  border-color: var(--brand);
-}
-
-.auth-btn {
-  width: 100%;
-  padding: 14px;
-  background: var(--brand);
-  color: #000;
-  border: none;
-  border-radius: 8px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.auth-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--neon-shadow);
-}
-
-/* Main Dashboard Layout */
+/* ---- RESPONSIVE 3-COLUMN LAYOUT ---- */
 .app-container {
   display: grid;
-  grid-template-columns: 320px 1fr 320px;
+  grid-template-columns: 280px 1fr 280px;
   height: 100vh;
   gap: 1px;
   background: var(--border);
 }
 
+/* Tablet */
+@media (max-width: 1100px) {
+  .app-container {
+    grid-template-columns: 220px 1fr 220px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .app-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .panel {
+    max-height: 30vh;
+  }
+
+  .main-view {
+    min-height: 40vh;
+  }
+}
+
 .panel {
   background: var(--bg-dark);
-  padding: 20px;
+  padding: 16px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
 .main-view {
-  background: #000;
+  background: #0a0e1a;
   position: relative;
 }
 
@@ -122,75 +86,221 @@ body {
   height: 100%;
 }
 
-/* Futuristic Header */
+/* ---- TOP NAVIGATION BAR ---- */
 .top-nav {
   position: absolute;
-  top: 20px;
-  left: 20px;
-  right: 20px;
-  height: 60px;
-  background: var(--bg-panel);
-  backdrop-filter: blur(10px);
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  height: 50px;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   z-index: 1000;
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 16px;
   justify-content: space-between;
 }
 
 .brand-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font-weight: 800;
-  letter-spacing: -0.5px;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
 }
 
 .brand-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   background: var(--success);
   border-radius: 50%;
-  box-shadow: 0 0 10px var(--success);
+  box-shadow: 0 0 8px var(--success);
   animation: pulse 2s infinite;
 }
 
-/* Components */
+.status-badge {
+  font-size: 0.65rem;
+  color: var(--success);
+  border: 1px solid var(--success);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 1px;
+}
+
+.clock {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  color: var(--brand);
+  text-shadow: 0 0 10px var(--brand-glow);
+}
+
+/* ---- CARDS ---- */
 .card {
-  background: var(--bg-panel);
+  background: var(--glass);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 20px;
+  border-radius: 10px;
+  padding: 14px;
+  transition: border-color 0.3s;
+}
+
+.card:hover {
+  border-color: rgba(34, 211, 238, 0.3);
 }
 
 .card-title {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
   text-transform: uppercase;
-  margin-bottom: 12px;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
   font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .stat-value {
-  font-size: 2rem;
+  font-size: 2.2rem;
   font-weight: 800;
   color: var(--brand);
+  line-height: 1;
+  text-shadow: 0 0 20px var(--brand-glow);
 }
 
-/* Map Overlays */
+.stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ---- INPUT & BUTTONS ---- */
+.cyber-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: white;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.cyber-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-glow);
+}
+
+.cyber-input::placeholder {
+  color: #475569;
+}
+
+.cyber-btn {
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, var(--brand), #06b6d4);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+}
+
+.cyber-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--neon-shadow);
+}
+
+/* ---- MAP PLANE MARKERS ---- */
+.plane-icon-div {
+  background: transparent !important;
+  border: none !important;
+}
+
 .plane-marker {
-  font-size: 24px;
-  color: var(--brand);
-  text-shadow: var(--neon-shadow);
-  transition: transform 0.2s;
+  font-size: 22px;
+  transition: all 0.3s;
 }
 
-/* Custom Scrollbar */
+.plane-marker:hover {
+  transform: scale(1.4) !important;
+  filter: brightness(1.5) !important;
+}
+
+/* ---- ALERT ITEMS ---- */
+.alert-item {
+  border-left: 3px solid var(--warning);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 0 6px 6px 0;
+  transition: background 0.2s;
+}
+
+.alert-item:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.alert-item.high {
+  border-left-color: var(--danger);
+}
+
+.alert-type {
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.3px;
+}
+
+.alert-meta {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ---- LOG PANEL ---- */
+.log-line {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  line-height: 1.5;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.log-line.info {
+  color: var(--success);
+}
+
+.log-line.warn {
+  color: var(--warning);
+}
+
+.log-line.error {
+  color: var(--danger);
+}
+
+.log-line.system {
+  color: var(--text-muted);
+}
+
+/* ---- SCROLLBAR ---- */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -198,19 +308,50 @@ body {
   border-radius: 10px;
 }
 
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand);
+}
+
+/* ---- LEAFLET OVERRIDES ---- */
+.leaflet-popup-content-wrapper {
+  background: var(--bg-panel) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--bg-panel) !important;
+}
+
+/* ---- ANIMATIONS ---- */
 @keyframes pulse {
-  0% {
+
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
 
   50% {
-    transform: scale(1.5);
-    opacity: 0.5;
+    transform: scale(1.6);
+    opacity: 0.4;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
 
-  100% {
-    transform: scale(1);
+  to {
     opacity: 1;
+    transform: translateY(0);
   }
+}
+
+.card {
+  animation: fadeIn 0.4s ease-out;
 }
