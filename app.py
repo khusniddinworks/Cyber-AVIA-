@@ -14,6 +14,9 @@ from sqlalchemy import func
 from sklearn.ensemble import IsolationForest
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
+import threading
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
 import requests
 
 # Enterprise Logging Configuration
