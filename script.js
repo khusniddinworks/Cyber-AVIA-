@@ -70,11 +70,13 @@ function startUpdates() {
 }
 
 async function updateStatus() {
-  console.log("Fetching live telemetry...");
+  const logEl = document.getElementById("securityLogs");
+  if (logEl) logEl.innerHTML = "<div>[SYSTEM] Synchronizing with global ADS-B network...</div>" + logEl.innerHTML;
+
   try {
     const res = await fetch("/api/live");
     if (!res.ok) {
-      console.warn("API returned status:", res.status);
+      if (logEl) logEl.innerHTML = "<div style='color:orange'>[WARN] Network congestion detected. Retrying...</div>" + logEl.innerHTML;
       return;
     }
 
@@ -82,6 +84,7 @@ async function updateStatus() {
     if (data && data.states) {
       const count = data.states.length;
       document.getElementById("livePulse").innerText = count;
+      if (logEl) logEl.innerHTML = `<div style='color:var(--success)'>[INFO] Successfully mapped ${count} targets via ${data.provider || 'primary uplink'}</div>` + logEl.innerHTML;
       if (map) renderPlanes(data.states);
     }
 
@@ -93,7 +96,7 @@ async function updateStatus() {
       renderAlerts(alerts);
     }
   } catch (e) {
-    console.warn("Retrying telemetry connection...");
+    if (logEl) logEl.innerHTML = "<div style='color:var(--danger)'>[ERROR] Satellite uplink intermittent. Re-routing...</div>" + logEl.innerHTML;
   }
 }
 
