@@ -33,7 +33,33 @@ function initMap() {
     maxZoom: 19
   }).addTo(map);
 
-  planeGroup = L.layerGroup().addTo(map);
+  // Marker clustering for thousands of planes
+  planeGroup = L.markerClusterGroup({
+    maxClusterRadius: 45,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    iconCreateFunction: function (cluster) {
+      const count = cluster.getChildCount();
+      let size = 'small', radius = 30;
+      if (count > 100) { size = 'large'; radius = 50; }
+      else if (count > 30) { size = 'medium'; radius = 40; }
+      return L.divIcon({
+        html: `<div style="
+          width:${radius}px; height:${radius}px; 
+          background: rgba(34,211,238,0.25); 
+          border: 2px solid #22d3ee; 
+          border-radius: 50%; 
+          display: flex; align-items: center; justify-content: center;
+          color: #22d3ee; font-weight: 800; font-size: ${radius / 3}px;
+          font-family: 'JetBrains Mono', monospace;
+          box-shadow: 0 0 15px rgba(34,211,238,0.4);
+        ">${count}</div>`,
+        className: 'cyber-cluster',
+        iconSize: L.point(radius, radius)
+      });
+    }
+  });
+  map.addLayer(planeGroup);
 }
 
 // ---- TELEMETRY ----

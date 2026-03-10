@@ -355,3 +355,19 @@ body {
 .card {
   animation: fadeIn 0.4s ease-out;
 }
+
+/* ---- CLUSTER OVERRIDES ---- */
+.cyber-cluster {
+  background: transparent !important;
+  border: none !important;
+}
+
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background: transparent !important;
+}
+
+.marker-cluster div {
+  background: transparent !important;
+}
