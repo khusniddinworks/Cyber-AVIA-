@@ -13,10 +13,8 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from sklearn.ensemble import IsolationForest
 import numpy as np
-import threading
-from cryptography.fernet import Fernet
-from dotenv import load_dotenv
-import requests # Much more reliable for SSL on Cloud
+from concurrent.futures import ThreadPoolExecutor
+import requests
 
 # Enterprise Logging Configuration
 logging.basicConfig(
@@ -338,25 +336,40 @@ def detect_anomalies(flights, timestamp):
 def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/api/live')
-def api_live():
-    qs = request.args
-    params = {}
-    for key in ("lamin","lamax","lomin","lomax"):
-        if key in qs:
-            params[key] = qs.get(key)
-    cache_key = urlencode(sorted(params.items()))
-    now = time.time()
-    cached = LIVE_CACHE.get(cache_key)
-    if cached and now - cached[0] <= LIVE_CACHE_TTL_SEC:
-        return jsonify(cached[1])
+def get_live_data_parallel(params):
     opensky_url = f"{OPENSKY_BASE}/states/all"
     if params:
         opensky_url += "?" + urlencode(params)
-    payload = try_opensky_live(opensky_url) or try_adsb_live(params) or get_fallback_data()
-    if payload is None:
-        return jsonify({"error":"live_unavailable","message":"all providers down"}),502
+    
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f1 = ex.submit(try_opensky_live, opensky_url)
+        f2 = ex.submit(try_adsb_live, params)
+        
+        # Priority 1: OpenSky
+        res1 = f1.result()
+        if res1 and res1.get("states"): return res1
+        
+        # Priority 2: ADSB.lol
+        res2 = f2.result()
+        if res2 and res2.get("states"): return res2
+        
+    return get_fallback_data()
+
+@app.route('/api/live')
+def api_live():
+    params = {}
+    for k in ["lamin","lamax","lomin","lomax"]:
+        if k in request.args: params[k] = request.args[k]
+    
+    now = time.time()
+    cache_key = str(sorted(params.items())) if params else "all"
+    if cache_key in LIVE_CACHE:
+        t, d = LIVE_CACHE[cache_key]
+        if now - t < LIVE_CACHE_TTL_SEC: return jsonify(d)
+
+    payload = get_live_data_parallel(params)
     LIVE_CACHE[cache_key] = (now, payload)
+    
     flights = []
     for r in payload.get("states",[]):
         flights.append({
