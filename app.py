@@ -84,13 +84,18 @@ def apply_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
-    # Fixed CSP to allow map tiles (Esri Satellite)
-    response.headers['Content-Security-Policy'] = (
-        "default-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://server.arcgisonline.com; "
+    
+    # Modernized CSP
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
         "img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com https://server.arcgisonline.com; "
         "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; "
-        "font-src https://fonts.gstatic.com;"
+        "font-src 'self' https://fonts.gstatic.com; "
+        "connect-src 'self' https://opensky-network.org https://api.adsb.lol; "
+        "frame-ancestors 'none';"
     )
+    response.headers['Content-Security-Policy'] = csp
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     return response
 
