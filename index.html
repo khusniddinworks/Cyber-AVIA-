@@ -9,25 +9,10 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 
-<body>
-
-  <!-- AUTH LAYER: Only Khusniddin can enter -->
-  <div id="authOverlay">
-    <div class="auth-card">
-      <div class="brand-title">
-        <div class="brand-dot"></div>
-        <h1>Cyber-AVIA</h1>
-      </div>
-      <p style="color: grey; font-size: 0.8rem; margin: -10px 0 20px;">SECURITY ACCESS ONLY</p>
-      <input type="text" id="adminUser" class="auth-input" placeholder="Admin User">
-      <input type="password" id="adminPass" class="auth-input" placeholder="Security Password">
-      <button onclick="login()" class="auth-btn">AUTHORIZE ACCESS</button>
-      <p id="errorMsg" style="color: var(--danger); font-size: 0.8rem; height: 1.2rem; margin-top: 10px;"></p>
-    </div>
-  </div>
+<body onload="initApp()">
 
   <!-- DASHBOARD LAYER -->
-  <div class="app-container" id="dashboard" style="display: none;">
+  <div class="app-container" id="dashboard">
     <!-- Sidebar Left: Telemetry -->
     <aside class="panel">
       <div class="card">
@@ -45,7 +30,7 @@
       <div id="logPanel" class="card" style="flex: 1; overflow-y: auto;">
         <div class="card-title">SECURITY LOGS</div>
         <div id="securityLogs" style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.6;">
-          Waiting for data...
+          Waiting for telemetry...
         </div>
       </div>
     </aside>
@@ -58,9 +43,9 @@
           <div>CYBER-AVIA <span style="font-weight: 300; font-size: 0.8rem; opacity: 0.6;">INTELLIGENCE</span></div>
         </div>
         <div id="networkClock" style="font-family: monospace; font-size: 1.1rem; color: var(--brand);">00:00:00</div>
-        <button onclick="logout()"
-          style="background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 4px 12px; border-radius: 6px; cursor: pointer;">LOCK
-          SYSTEM</button>
+        <div
+          style="font-size: 0.7rem; color: var(--success); border: 1px solid var(--success); padding: 4px 10px; border-radius: 4px;">
+          SYSTEM LIVE</div>
       </div>
       <div id="map"></div>
     </main>
@@ -70,7 +55,8 @@
       <div class="card">
         <div class="card-title">AIRCRAFT LOOKUP</div>
         <input type="text" id="icaoInput" class="auth-input" style="height: 38px;" placeholder="ICAO HEX (e.g. 4B0011)">
-        <button onclick="searchICAO()" class="auth-btn" style="padding: 10px;">FIND RECORD</button>
+        <button onclick="searchICAO()" class="auth-btn"
+          style="padding: 10px; background: var(--brand); color: #000;">FIND RECORD</button>
       </div>
 
       <div id="detailsCard" class="card" style="display: none;">

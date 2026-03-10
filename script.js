@@ -1,31 +1,10 @@
 ﻿let map, planeGroup;
 let updateInterval;
 
-function login() {
-  const user = document.getElementById("adminUser").value.trim();
-  const pass = document.getElementById("adminPass").value.trim();
-
-  // Local validation for UI (Security is handled by Backend API)
-  if (user && pass) {
-    console.log("Authorization requested...");
-    document.getElementById("authOverlay").style.transition = "opacity 0.5s";
-    document.getElementById("authOverlay").style.opacity = "0";
-
-    setTimeout(() => {
-      document.getElementById("authOverlay").style.display = "none";
-      document.getElementById("dashboard").style.display = "grid";
-
-      // Initialize systems
-      try {
-        initMap();
-      } catch (e) {
-        console.error("Map system failure, continuing with telemetry only:", e);
-      }
-      startUpdates();
-    }, 500);
-  } else {
-    document.getElementById("errorMsg").innerText = "CREDENTIALS REQUIRED";
-  }
+function initApp() {
+  console.log("Cyber-AVIA System Initializing...");
+  initMap();
+  startUpdates();
 }
 
 function initMap() {
@@ -87,18 +66,21 @@ function renderPlanes(states) {
   planeGroup.clearLayers();
 
   states.slice(0, 150).forEach(s => {
-    const [icao, call, country, , , lon, lat, , isGnd, vel, trk] = s;
+    const [icao, , , , , lon, lat, , , vel, trk] = s;
+    const call = s[1];
     if (lat && lon) {
       const angle = trk || 0;
-      const html = `<div class="plane-marker" style="transform: rotate(${angle}deg); cursor: pointer;">✈</div>`;
+      const html = `<div class="plane-marker" style="transform: rotate(${angle - 45}deg); cursor: pointer; color: #22d3ee; filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.8));">✈</div>`;
       const icon = L.divIcon({ html: html, className: 'plane-icon-div', iconSize: [24, 24] });
 
       const marker = L.marker([lat, lon], { icon: icon });
       marker.bindPopup(`
-        <div style="color: #000; font-family: sans-serif;">
-          <b style="color: #0891b2;">${call || 'N/A'}</b><br>
-          <small>ICAO: ${icao.toUpperCase()}</small><br>
-          <small>Speed: ${Math.round(vel * 3.6)} km/h</small>
+        <div style="color: #000; font-family: sans-serif; padding: 5px;">
+          <b style="color: #0891b2; font-size: 1rem;">${call || 'AERIAL TARGET'}</b><br>
+          <div style="margin-top: 5px; border-top: 1px solid #eee; padding-top: 5px;">
+            <small>ICAO: ${icao.toUpperCase()}</small><br>
+            <small>Velocity: ${Math.round(vel * 3.6)} km/h</small>
+          </div>
         </div>
       `);
       marker.addTo(planeGroup);
@@ -110,17 +92,28 @@ function renderAlerts(alerts) {
   const container = document.getElementById("alertList");
   if (!container) return;
 
-  if (alerts.length === 0) {
-    container.innerHTML = '<div style="color: #475569; font-style: italic;">No active threats...</div>';
+  if (!alerts || alerts.length === 0) {
+    container.innerHTML = '<div style="color: #475569; font-style: italic; padding: 10px;">Monitoring airspace for signals...</div>';
     return;
   }
 
   container.innerHTML = alerts.slice(0, 15).map(a => `
-    <div style="border-left: 3px solid ${a.severity === 'high' ? '#f43f5e' : '#f59e0b'}; background: rgba(0,0,0,0.2); padding: 8px; margin-bottom: 10px; border-radius: 0 4px 4px 0;">
-      <div style="color: #f1f5f9; font-weight: bold; font-size: 0.8rem;">${a.type.toUpperCase()}</div>
-      <div style="font-size: 0.7rem; color: #94a3b8;">${a.icao24.toUpperCase()} • RISK: ${a.risk_score}%</div>
+    <div style="border-left: 3px solid ${a.severity === 'high' ? '#f43f5e' : '#f59e0b'}; background: rgba(0,0,0,0.4); padding: 10px; margin-bottom: 10px; border-radius: 0 8px 8px 0; border: 1px solid rgba(255,255,255,0.05); border-left-width: 3px;">
+      <div style="color: #f1f5f9; font-weight: bold; font-size: 0.8rem; letter-spacing: 0.5px;">${a.type.replace('_', ' ').toUpperCase()}</div>
+      <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 4px;">HEX: ${a.icao24.toUpperCase()} • RISK: ${a.risk_score}%</div>
     </div>
   `).join("");
 }
 
-function logout() { location.reload(); }
+async function searchICAO() {
+  const icao = document.getElementById("icaoInput").value.trim();
+  if (icao.length !== 6) {
+    alert("Please enter a valid 6-char ICAO HEX code.");
+    return;
+  }
+  // Implement search logic or show history
+  const detailsCard = document.getElementById("detailsCard");
+  const detailsContent = document.getElementById("detailsContent");
+  detailsCard.style.display = "block";
+  detailsContent.innerHTML = "Fetching historical flight path for target " + icao.toUpperCase() + "...";
+}
