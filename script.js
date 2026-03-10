@@ -75,29 +75,48 @@ async function updateStatus() {
 
   try {
     const res = await fetch("/api/live");
-    if (!res.ok) {
-      if (logEl) logEl.innerHTML = "<div style='color:orange'>[WARN] Network congestion detected. Retrying...</div>" + logEl.innerHTML;
-      return;
-    }
+    if (!res.ok) throw new Error("Backend Blocked");
 
     const data = await res.json();
     if (data && data.states) {
-      const count = data.states.length;
-      document.getElementById("livePulse").innerText = count;
-      if (logEl) logEl.innerHTML = `<div style='color:var(--success)'>[INFO] Successfully mapped ${count} targets via ${data.provider || 'primary uplink'}</div>` + logEl.innerHTML;
-      if (map) renderPlanes(data.states);
-    }
-
-    // Update Alerts
-    const alertRes = await fetch("/api/alerts");
-    if (alertRes.ok) {
-      const alerts = await alertRes.json();
-      document.getElementById("anomalyCount").innerText = alerts.length;
-      renderAlerts(alerts);
+      processTelemetry(data);
+    } else {
+      throw new Error("Empty Data");
     }
   } catch (e) {
-    if (logEl) logEl.innerHTML = "<div style='color:var(--danger)'>[ERROR] Satellite uplink intermittent. Re-routing...</div>" + logEl.innerHTML;
+    if (logEl) logEl.innerHTML = "<div style='color:orange'>[WARN] Server uplink blocked. Engaging Direct-Satellite-Link...</div>" + logEl.innerHTML;
+    tryDirectFetch();
   }
+}
+
+async function tryDirectFetch() {
+  // Direct client-side fetch from the network (Bypasses server blocks)
+  try {
+    const url = "https://api.adsb.lol/v2/lamin/30/lamax/60/lomin/-10/lomax/40";
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data && data.ac) {
+      // Map API format to our state format
+      const states = data.ac.map(a => [a.hex, a.flight, a.r, 0, 0, a.lon, a.lat, a.alt_baro, a.alt_baro === "ground", a.gs, a.track]);
+      processTelemetry({ states: states, provider: "Direct-Client-Uplink" });
+    }
+  } catch (e) {
+    console.warn("Global network synchronization failure.");
+  }
+}
+
+function processTelemetry(data) {
+  const logEl = document.getElementById("securityLogs");
+  const count = data.states.length;
+  document.getElementById("livePulse").innerText = count;
+  if (logEl) logEl.innerHTML = `<div style='color:var(--success)'>[INFO] Mapped ${count} units via ${data.provider || 'primary'}</div>` + logEl.innerHTML;
+  if (map) renderPlanes(data.states);
+
+  // Try to update alerts if backend is partly accessible
+  fetch("/api/alerts").then(r => r.json()).then(alerts => {
+    document.getElementById("anomalyCount").innerText = alerts.length;
+    renderAlerts(alerts);
+  }).catch(() => { });
 }
 
 function renderPlanes(states) {
