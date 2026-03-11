@@ -183,6 +183,31 @@ function renderPlanes(states) {
       fresh.push(m);
       planeMarkers.set(key, m);
     }
+
+    // Update plane history
+    const hist = planeHistory.get(key) || [];
+    hist.push([lat, lon]);
+    // Keep history to a reasonable length, e.g., last 20 points
+    if (hist.length > 20) {
+      hist.shift();
+    }
+    planeHistory.set(key, hist);
+
+    // Tactical Trajectory (Trail of Intercepts)
+    if (hist.length > 1) {
+      if (planePaths.has(key)) {
+        planePaths.get(key).setLatLngs(hist);
+      } else {
+        // Professional dashed trail with semi-transparent points
+        const trail = L.polyline(hist, {
+          color: color, 
+          weight: 1, 
+          opacity: 0.3, 
+          dashArray: '4, 4'
+        }).addTo(map);
+        planePaths.set(key, trail);
+      }
+    }
   });
 
   // Cleanup
@@ -190,6 +215,12 @@ function renderPlanes(states) {
     if (!seen.has(k)) {
       planeGroup.removeLayer(m);
       planeMarkers.delete(k);
+      // Remove path and history for planes no longer seen
+      if (planePaths.has(k)) {
+        map.removeLayer(planePaths.get(k));
+        planePaths.delete(k);
+      }
+      planeHistory.delete(k);
     }
   }
   if (fresh.length) planeGroup.addLayers(fresh);
