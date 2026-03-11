@@ -67,6 +67,8 @@ class AIState:
         self.lock = threading.Lock()
 
 ai_engine = AIState()
+# --- EXPERT IN-MEMORY TRACKER ---
+LAST_KNOWN_VECTORS = {}
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
@@ -271,45 +273,37 @@ def fetch_adsb_aircraft(lat, lon, dist_km):
         return None
 
 def detect_anomalies(flights, timestamp):
+    """
+    High-Performance Anomaly Detection using In-Memory Cache.
+    Zero Database pressure - protects against Render SIGKILL.
+    """
+    global LAST_KNOWN_VECTORS
     anomalies = []
-    seen_icao = set()
-    current_icaos = set()
     
-    for f in flights:
-        icao = f.get('icao24','').lower()
-        if not icao: continue
-        current_icaos.add(icao)
-        
-        speed_kmh = (f.get('velocity') or 0) * 3.6
-        alt = f.get('altitude') or 0
-        
-        # 1. High Speed (Supersonic or False Signal)
-        if speed_kmh > 1250:
-            anomalies.append({
-                'icao24': icao, 'type': 'high_speed_anom', 'severity': 'high', 'risk_score': 92,
-                'details': f'Extreme vector: {speed_kmh:.0f} km/h'
-            })
-        
-        # 2. Duplicate ICAO (Identity Spoofing)
-        if icao in seen_icao:
-            anomalies.append({
-                dist = calculate_distance(last_f.lat, last_f.lon, f['lat'], f['lon'])
-                dt = timestamp - last_f.timestamp
-                if dt > 0 and dt < 120: # Within 2 updates
-                    calc_speed = (dist / dt) * 3600
-                    if calc_speed > 2000:
-                        anomalies.append({
-                            'icao24': icao, 'type': 'vector_jump', 'severity': 'high', 'risk_score': 85,
-                            'details': f'Incoherent jump: {dist:.1f} km at {calc_speed:.0f} km/h'
-                        })
+    # Clean up old data from memory (> 10 mins old)
+    expiry = timestamp - 600
+    LAST_KNOWN_VECTORS = {k: v for k, v in LAST_KNOWN_VECTORS.items() if v['ts'] > expiry}
 
-    # 4. Signal Loss Tracking (Selective Intelligence)
+    for f in flights:
+        icao = f.get('icao24')
+        if not icao: continue
+        
+        v = to_float(f['velocity'], 0)
+        alt = f['altitude'] or 0
+        lat, lon = f['lat'], f['lon']
+        
+        # 1. Supersonic Anomaly (> 1100 km/h)
+        if v > 310: 
+            anomalies.append({
+                'icao24': icao, 'type': 'high_speed_anom', 'severity': 'high', 'risk_score': 80,
+                'details': f"Kinematic Violation: {int(v*3.6)} km/h"
+            })
 
         # 2. Vector Jump (Teleportation Detection)
         if icao in LAST_KNOWN_VECTORS:
             prev = LAST_KNOWN_VECTORS[icao]
             dist = calculate_distance(prev['lat'], prev['lon'], lat, lon)
-            dt = now - prev['ts']
+            dt = timestamp - prev['ts']
             
             if dt > 1 and dt < 120:
                 calc_speed = (dist / dt) # km/s
@@ -320,7 +314,7 @@ def detect_anomalies(flights, timestamp):
                     })
 
         # Update Memory Cache
-        LAST_KNOWN_VECTORS[icao] = {'lat': lat, 'lon': lon, 'ts': now, 'alt': alt}
+        LAST_KNOWN_VECTORS[icao] = {'lat': lat, 'lon': lon, 'ts': timestamp, 'alt': alt}
 
     return anomalies
 
@@ -397,8 +391,6 @@ def api_live():
     except Exception as e:
         db.session.rollback()
         logger.error(f"Post-processing error: {e}")
-    
-    return jsonify(payload)
     
     return jsonify(payload)
 
