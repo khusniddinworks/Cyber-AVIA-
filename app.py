@@ -1,5 +1,6 @@
 import eventlet
 eventlet.monkey_patch()
+
 import os
 import time
 import math
@@ -576,24 +577,25 @@ with app.app_context():
 
 # --- REAL-TIME STREAMING THREAD ---
 streamer_started = False
-streamer_lock = threading.Lock()
+# Using eventlet semaphore for green-thread safety
+streamer_semaphore = eventlet.semaphore.Semaphore()
 
 def telemetry_streamer():
     """Background task to fetch and broadcast telemetry to all clients."""
     while True:
         try:
-            # Global fetch
-            payload = get_live_data_parallel({})
+            # We fetch a large world segment for the global stream
+            payload = get_live_data_parallel({"lamin":-90, "lamax":90, "lomin":-180, "lomax":180})
             if payload and "states" in payload:
                 socketio.emit('plane_update', payload)
         except Exception as e:
             logger.error(f"Streamer Error: {e}")
-        socketio.sleep(8) # Optimization: Update every 8s
+        socketio.sleep(10) # 10s interval for stability
 
 @socketio.on('connect')
 def handle_connect():
     global streamer_started
-    with streamer_lock:
+    with streamer_semaphore:
         if not streamer_started:
             socketio.start_background_task(telemetry_streamer)
             streamer_started = True
