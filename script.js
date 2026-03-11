@@ -1,4 +1,4 @@
-﻿let map, planeGroup;
+﻿let map, planeGroup, socket;
 let updateInterval;
 const planeMarkers = new Map(); // Track markers by ICAO
 const planePaths = new Map();   // Track polylines by ICAO
@@ -40,20 +40,37 @@ function initMap() {
   map.addLayer(planeGroup);
 }
 
-// ---- TELEMETRY ENGINE ----
+// ---- WebSocket ENGINE ----
 function startUpdates() {
-  updateStatus();
-  updateInterval = setInterval(updateStatus, 12000);
+  socket = io();
+
+  socket.on('connect', () => {
+    addLog("info", "Secure-Socket link established.");
+  });
+
+  socket.on('plane_update', (data) => {
+    if (data && data.states) {
+      processTelemetry(data);
+    }
+  });
+
+  socket.on('system_log', (data) => {
+    addLog("system", data.msg);
+  });
+
+  socket.on('disconnect', () => {
+    addLog("error", "Socket link severed. Attempting rejoin...");
+  });
 }
 
+// updateStatus kept only as one-time initialization if needed
 async function updateStatus() {
-  addLog("system", "Uplink synchronization in progress...");
   try {
     const res = await fetch("/api/live");
     if (!res.ok) throw new Error();
     const data = await res.json();
     if (data && data.states) { processTelemetry(data); return; }
-  } catch (e) { addLog("warn", "Direct-Link protocol engaged."); }
+  } catch (e) { /* silent */ }
 
   // Multi-region Global Fetch (Client-side)
   try {

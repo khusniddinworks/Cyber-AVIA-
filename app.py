@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 from urllib.request import ProxyHandler, Request, build_opener
 
 from flask import Flask, request, jsonify, send_from_directory, abort, make_response
+from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -81,6 +82,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 limiter = Limiter(get_remote_address, app=app, default_limits=["200 per minute"])
 
 # --- SECURITY MIDDLEWARE (Expert Level) ---
@@ -566,11 +568,31 @@ def api_stats():
     by_type = db.session.query(Anomaly.type, func.count()).group_by(Anomaly.type).all()
     return jsonify({"by_type": by_type})
 
-# --- STARTUP LOGIC (PRODUCTION READY) ---
-with app.app_context():
-    db.create_all()
-    # Initial AI training in background to avoid blocking
-    threading.Thread(target=train_ai_model, daemon=True).start()
+# --- REAL-TIME STREAMING THREAD ---
+def telemetry_streamer():
+    """Background task to fetch and broadcast telemetry to all clients."""
+    while True:
+        try:
+            # We fetch a large world segment to keep it live
+            payload = get_live_data_parallel({"lamin":-90, "lamax":90, "lomin":-180, "lomax":180})
+            if payload and "states" in payload:
+                socketio.emit('plane_update', payload)
+        except Exception as e:
+            logger.error(f"Streamer Error: {e}")
+        time.sleep(5) # Real-time update every 5 seconds
 
-if __name__=="__main__":
-    app.run(host=HOST, port=PORT, debug=DEBUG_MODE)
+@socketio.on('connect')
+def handle_connect():
+    logger.info("Intel client connected via Secure-Socket.")
+    emit('system_log', {'msg': 'Real-time telemetry link established.'})
+
+# --- RUNTIME ---
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    
+    # Start background streamer
+    socketio.start_background_task(telemetry_streamer)
+    
+    logger.info(f"Cyber-AVIA Active on port {PORT}. Real-Time Engine engaged.")
+    socketio.run(app, host=HOST, port=PORT, debug=DEBUG_MODE)

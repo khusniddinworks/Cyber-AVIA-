@@ -9,3 +9,5 @@ requests
 gunicorn
 psycopg2-binary
 pytest
+flask-socketio
+eventlet
