@@ -177,24 +177,11 @@ def get_fallback_data():
     return {"provider": "offline", "states": []}
 
 def try_opensky_live(url):
-    auth = None
-    if OPENSKY_BEARER_TOKEN:
-        headers = {"Authorization": f"Bearer {OPENSKY_BEARER_TOKEN}", "User-Agent": "Mozilla/5.0"}
-    elif OPENSKY_USER and OPENSKY_PASS:
-        auth = (OPENSKY_USER, OPENSKY_PASS)
-        headers = {"User-Agent": "Mozilla/5.0"}
-    else:
-        headers = {"User-Agent": "Mozilla/5.0"}
-
-    try:
-        r = requests.get(url, headers=headers, auth=auth, timeout=15)
-        r.raise_for_status()
-        data = r.json()
-        states = data.get("states")
-        if isinstance(states, list):
-            return {"provider": "opensky", "states": states}
-    except Exception as e:
-        logger.error(f"OpenSky API Failure: {e}")
+    """OpenSky is BLOCKED from cloud servers. Only use from browser-side.
+    This function is kept for local testing only."""
+    # Render/cloud IPs are blocked by opensky-network.org
+    # Skip immediately to save time
+    logger.debug("OpenSky skipped (cloud IP blocked by OpenSky policy)")
     return None
 
 def try_adsb_live(params):
@@ -358,17 +345,12 @@ def index():
     return send_from_directory('.', 'index.html')
 
 def get_live_data_parallel(params):
-    opensky_url = f"{OPENSKY_BASE}/states/all"
-    if params:
-        opensky_url += "?" + urlencode(params)
+    # NOTE: OpenSky is NOT used from backend (cloud IPs are blocked by OpenSky)
+    # Frontend fetches OpenSky directly from the user's browser
     
-    # Priority 1: OpenSky
-    res1 = try_opensky_live(opensky_url)
-    if res1 and res1.get("states"): return res1
-    
-    # Priority 2: ADSB.lol
-    res2 = try_adsb_live(params)
-    if res2 and res2.get("states"): return res2
+    # ADSB.lol is our primary backend data source (cloud-friendly)
+    res = try_adsb_live(params)
+    if res and res.get("states"): return res
     
     return get_fallback_data()
 

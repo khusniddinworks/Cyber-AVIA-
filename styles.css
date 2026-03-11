@@ -1,4 +1,4 @@
-﻿/* =========================================
+/* =========================================
    CYBER-AVIA PROFESSIONAL DESIGN SYSTEM v2.0
    Expert: Khusniddin (Aviation CyberSec)
    Score Target: 80+
@@ -372,4 +372,33 @@ body {
 
 .marker-cluster div {
   background: transparent !important;
+}
+
+/* ---- AI POPUP STYLES ---- */
+.cyber-popup .leaflet-popup-content-wrapper {
+  background: rgba(10, 15, 30, 0.97) !important;
+  border: 1px solid rgba(34, 211, 238, 0.3) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 0 30px rgba(34, 211, 238, 0.15), 0 8px 32px rgba(0,0,0,0.6) !important;
+  color: #f1f5f9 !important;
+  padding: 0 !important;
+}
+
+.cyber-popup .leaflet-popup-content {
+  margin: 12px !important;
+}
+
+.cyber-popup .leaflet-popup-tip-container {
+  display: none !important;
+}
+
+.cyber-popup .leaflet-popup-close-button {
+  color: #22d3ee !important;
+  font-size: 1rem !important;
+  top: 6px !important;
+  right: 8px !important;
+}
+
+.cyber-popup a {
+  color: #22d3ee !important;
 }
