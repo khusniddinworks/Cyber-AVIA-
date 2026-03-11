@@ -7,7 +7,7 @@ const planeHistory = new Map();
 document.addEventListener("DOMContentLoaded", () => {
   startClock();
   initMap();
-  addLog("system", "📡 CYBER-AVIA ELINT (Electronic Intelligence) Node Active.");
+  addLog("system", "📡 CYBER SUSPICIOUS ANALYSIS (Electronic Intelligence) Node Active.");
   loadPlanes();
   setInterval(loadPlanes, 30000);
 });
