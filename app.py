@@ -304,18 +304,24 @@ def detect_anomalies(flights, timestamp):
                         })
 
     # 4. Signal Loss Tracking (Selective Intelligence)
-    # Only alert for significant signal loss (flights seen in last 2m)
-    two_min_ago = timestamp - 120
-    lost = db.session.query(Flight.icao24).filter(Flight.timestamp > two_min_ago - 60, Flight.timestamp < two_min_ago).distinct().all()
-    for (m_icao,) in lost:
-        if m_icao.lower() not in current_icaos:
-            exists = Anomaly.query.filter_by(icao24=m_icao, type='signal_loss').filter(Anomaly.detected_at > two_min_ago).first()
-            if not exists:
-                anomalies.append({
-                    'icao24': m_icao, 'type': 'signal_loss', 'severity': 'medium', 'risk_score': 60,
-                    'details': 'Target lost contact'
-                })
-    
+
+        # 2. Vector Jump (Teleportation Detection)
+        if icao in LAST_KNOWN_VECTORS:
+            prev = LAST_KNOWN_VECTORS[icao]
+            dist = calculate_distance(prev['lat'], prev['lon'], lat, lon)
+            dt = now - prev['ts']
+            
+            if dt > 1 and dt < 120:
+                calc_speed = (dist / dt) # km/s
+                if calc_speed > 0.5: # Faster than Mach 1.5 jump
+                    anomalies.append({
+                        'icao24': icao, 'type': 'vector_jump', 'severity': 'critical', 'risk_score': 95,
+                        'details': f"Position Jump: {int(dist)}km shift detected"
+                    })
+
+        # Update Memory Cache
+        LAST_KNOWN_VECTORS[icao] = {'lat': lat, 'lon': lon, 'ts': now, 'alt': alt}
+
     return anomalies
 
 @app.route('/health')
@@ -387,22 +393,12 @@ def api_live():
                 details=a['details'], detected_at=now
             ))
         
-        # Keep only a sample of normal flights in DB to avoid bloat
-        # In professional systems, we only log targets of interest (TOI)
-        for f in flights[:50]: # Only top 50 to track history
-            rec = Flight(
-                icao24=f['icao24'], country=f['country'],
-                lon=f['lon'], lat=f['lat'], altitude=f['altitude'],
-                velocity=f['velocity'], track=f['track'], on_ground=f['onGround'],
-                timestamp=now
-            )
-            rec.callsign = f['callsign']
-            db.session.add(rec)
-            
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         logger.error(f"Post-processing error: {e}")
+    
+    return jsonify(payload)
     
     return jsonify(payload)
 
