@@ -1,5 +1,6 @@
-import eventlet
-eventlet.monkey_patch()
+from gevent import monkey
+monkey.patch_all()
+import gevent
 
 import os
 import time
@@ -366,17 +367,18 @@ def get_live_data_parallel(params):
     if params:
         opensky_url += "?" + urlencode(params)
     
-    # Eventlet-friendly parallel execution
-    pool = eventlet.GreenPool(size=2)
+    # Gevent-friendly parallel execution
+    from gevent.pool import Pool
+    pool = Pool(size=2)
     t1 = pool.spawn(try_opensky_live, opensky_url)
     t2 = pool.spawn(try_adsb_live, params)
     
     # Priority 1: OpenSky
-    res1 = t1.wait()
+    res1 = t1.get()
     if res1 and res1.get("states"): return res1
     
     # Priority 2: ADSB.lol
-    res2 = t2.wait()
+    res2 = t2.get()
     if res2 and res2.get("states"): return res2
     
     return get_fallback_data()
@@ -576,28 +578,25 @@ with app.app_context():
 
 # --- REAL-TIME STREAMING THREAD ---
 streamer_started = False
-# Using eventlet semaphore for green-thread safety
-streamer_semaphore = eventlet.semaphore.Semaphore()
+streamer_lock = threading.Lock()
 
 def telemetry_streamer():
     """Background task to fetch and broadcast telemetry to all clients."""
     while True:
         try:
-            # We fetch a large world segment for the global stream
             payload = get_live_data_parallel({"lamin":-90, "lamax":90, "lomin":-180, "lomax":180})
             if payload and "states" in payload:
                 socketio.emit('plane_update', payload)
         except Exception as e:
             logger.error(f"Streamer Error: {e}")
-        socketio.sleep(10) # 10s interval for stability
+        gevent.sleep(10) # Using gevent.sleep
 
 @socketio.on('connect')
 def handle_connect():
     global streamer_started
-    with streamer_semaphore:
-        if not streamer_started:
-            socketio.start_background_task(telemetry_streamer)
-            streamer_started = True
+    if not streamer_started:
+        socketio.start_background_task(telemetry_streamer)
+        streamer_started = True
     
     logger.info("Intel client connected via Secure-Socket.")
     emit('system_log', {'msg': 'Real-time telemetry link established.'})

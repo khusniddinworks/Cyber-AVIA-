@@ -14,7 +14,6 @@ COPY . .
 # Set dynamic port for Render
 ENV PORT=8080
 
-# Forcing eventlet worker class. 
-# We use --worker-class instead of -k for clarity.
-# We set workers to 1 because SocketIO in-memory doesn't support multiple workers without a message queue like Redis.
-CMD gunicorn --worker-class eventlet -w 1 -b 0.0.0.0:$PORT --timeout 120 --log-level debug app:app
+# Using GEVENT worker. This is superior to eventlet for stability.
+# We set workers to 1 to ensure SocketIO session consistency without Redis.
+CMD gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 -b 0.0.0.0:$PORT --timeout 120 --log-level info app:app
