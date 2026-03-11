@@ -8,8 +8,13 @@ const planeHistory = new Map(); // Track coordinates history
 document.addEventListener("DOMContentLoaded", () => {
   startClock();
   try { initMap(); } catch (e) { addLog("error", "Map subsystem failure: " + e.message); }
-  startUpdates();
-  addLog("system", "Cyber-AVIA Intelligence Core engaged.");
+  try {
+    startUpdates();
+    addLog("system", "Cyber-AVIA Intelligence Core engaged.");
+  } catch (e) {
+    addLog("error", "Telemetry core failure: " + e.message);
+    startPolling(); // Fallback if WS setup completely crashes
+  }
 });
 
 function startClock() {

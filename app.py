@@ -101,11 +101,11 @@ def apply_security_headers(response):
     # Modernized CSP
     csp = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
+        "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://cdn.socket.io; "
         "img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com https://server.arcgisonline.com https://*.basemaps.cartocdn.com; "
         "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "connect-src 'self' https://opensky-network.org https://api.adsb.lol; "
+        "connect-src 'self' ws: wss: https://opensky-network.org https://api.adsb.lol; "
         "frame-ancestors 'none';"
     )
     response.headers['Content-Security-Policy'] = csp
