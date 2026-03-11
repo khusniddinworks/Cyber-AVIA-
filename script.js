@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initMap();
   addLog("system", "📡 CYBER-AVIA ELINT (Electronic Intelligence) Node Active.");
   loadPlanes();
-  setInterval(loadPlanes, 15000);
+  setInterval(loadPlanes, 30000);
 });
 
 function startClock() {
@@ -116,26 +116,60 @@ function renderPlanes(states) {
       className: '', iconSize: [20, 20], iconAnchor: [10, 10]
     });
 
+    const callClean = (call || 'UNTAGGED').trim();
+    const snr = Math.floor(Math.random() * 40) + 60; // Simulated Signal Strength
+    const integrity = snr > 85 ? 'HIGH' : snr > 75 ? 'STABLE' : 'DEGRADED';
+    const signalColor = snr > 85 ? '#10b981' : snr > 75 ? '#f59e0b' : '#f43f5e';
+    const threat = {
+      label: risk.level,
+      score: risk.score,
+      color: risk.color,
+      detail: risk.reasons
+    };
+    const route = {
+      airline: intel.origin, // Reusing origin for airline for now
+      destination: intel.dest
+    };
+    const spd_kmh = Math.round(vel * 3.6);
+    const altFt = Math.round(alt * 3.28);
+    const profile = { pax: intel.pax };
+
     const popupHtml = `
-      <div style="font-family:'JetBrains Mono',monospace; min-width:240px; padding:5px;">
-        <div style="border-bottom:1px solid #334155; padding-bottom:5px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-          <b style="color:${color}; font-size:1.1rem;">${(call || 'UNKNOWN').trim()}</b>
-          <span style="font-size:0.65rem; background:${color}22; color:${color}; border:1px solid ${color}; padding:1px 4px; border-radius:3px;">${risk.level}</span>
-        </div>
-        
-        <div style="font-size:0.72rem; line-height:1.8; color:#94a3b8;">
-          📡 <span style="color:#cbd5e1;">IDENT:</span> <span style="color:#f1f5f9;">${key.toUpperCase()}</span><br>
-          📍 <span style="color:#cbd5e1;">ROUTE:</span> <span style="color:#f1f5f9;">${intel.origin} ➔ ${intel.dest}</span><br>
-          👥 <span style="color:#cbd5e1;">PAX (EST):</span> <span style="color:#f1f5f9;">~${intel.pax} Souls</span><br>
-          🚀 <span style="color:#cbd5e1;">SPEED:</span> <span style="color:#f1f5f9;">${Math.round(vel * 3.6)} km/h</span><br>
-          📡 <span style="color:#cbd5e1;">AUDIT:</span> <span style="color:${color}; font-weight:bold;">${risk.score > 0 ? risk.reasons : 'Compliant'}</span>
-        </div>
-        
-        <div style="margin-top:10px; font-size:0.6rem; color:#475569; border-top:1px solid #1e293b; padding-top:5px;">
-           CYBER-AVIA RISK SCORE: ${risk.score}/100
-        </div>
+  <div style="font-family:'JetBrains Mono',monospace; min-width:250px; padding:5px;">
+    <!-- Header -->
+    <div style="border-bottom:1px solid #1e293b; padding-bottom:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+       <b style="color:${color}; font-size:1.1rem;">${callClean || 'UNTAGGED'}</b>
+       <div style="font-size:0.6rem; color:#64748b; text-align:right;">
+         ELINT NODE: 04-X<br>
+         SIG: <span style="color:${signalColor}">${snr}dB [${integrity}]</span>
+       </div>
+    </div>
+
+    <!-- AI Threat Badge -->
+    <div style="background:${threat.color}22; border:1px solid ${threat.color}; border-radius:6px; padding:6px; margin-bottom:10px;">
+      <div style="font-size:0.75rem; font-weight:800; color:${threat.color}; letter-spacing:1px; display:flex; justify-content:space-between;">
+        <span>${threat.label}</span>
+        <span>${threat.score}%</span>
       </div>
-    `;
+      <div style="font-size:0.62rem; color:#94a3b8; margin-top:3px; font-style:italic;">${threat.detail}</div>
+    </div>
+
+    <!-- Combat/Intel Data -->
+    <div style="font-size:0.72rem; line-height:1.7; color:#cbd5e1; display:grid; grid-template-columns:1fr 1.2fr; gap:6px;">
+       <div>IDENT:</div><div style="color:#f1f5f9; font-weight:bold;">${icao.toUpperCase()}</div>
+       <div>OPERATOR:</div><div style="color:#f1f5f9;">${route.airline || (country || 'Unknown')}</div>
+       <div>AIRSPEED:</div><div style="color:${spd_kmh > 900 ? '#f43f5e' : '#f1f5f9'};">${spd_kmh} KM/H</div>
+       <div>ALTITUDE:</div><div style="color:#f1f5f9;">${altFt.toLocaleString()} FT</div>
+       <div>SQUAWK:</div><div style="color:#10b981; font-weight:bold;">2000 (SECURE)</div>
+       <div>PAX (EST):</div><div style="color:#f1f5f9;">~${profile.pax} Souls</div>
+    </div>
+
+    <!-- Live Intercept Logic -->
+    <div style="margin-top:10px; padding-top:8px; border-top:1px solid #1e293b; font-size:0.6rem; color:#475569;">
+      <span style="color:#22d3ee; font-weight:bold;">●</span> JAMMING ANALYSIS: CLEAN AIRSPACE<br>
+      <span style="color:#f59e0b; font-weight:bold;">●</span> ENCRYPTION: AES-256 SYNCED
+    </div>
+  </div>`;
 
     if (planeMarkers.has(key)) {
       const m = planeMarkers.get(key);

@@ -57,7 +57,7 @@ ENC_KEY = os.getenv("ENCRYPTION_KEY")
 cipher = Fernet(ENC_KEY.encode())
 
 OPEN_TIMEOUT_SEC = 25
-LIVE_CACHE_TTL_SEC = 15
+LIVE_CACHE_TTL_SEC = 30
 
 # AI Model State
 class AIState:
@@ -293,23 +293,6 @@ def detect_anomalies(flights, timestamp):
         # 2. Duplicate ICAO (Identity Spoofing)
         if icao in seen_icao:
             anomalies.append({
-                'icao24': icao, 'type': 'signal_spoof', 'severity': 'critical', 'risk_score': 98,
-                'details': 'Ghost signature: Identity duplication'
-            })
-        seen_icao.add(icao)
-
-        # 3. Sudden Vector Jumps (Teleportation or Radar Error)
-        last_f = Flight.query.filter_by(icao24=icao).order_by(Flight.timestamp.desc()).first()
-        if last_f:
-            # Altitude Jump (Spoofing indicator)
-            if last_f.altitude and alt and abs(alt - last_f.altitude) > 10000: # 10k ft jump
-                anomalies.append({
-                    'icao24': icao, 'type': 'altitude_tamper', 'severity': 'high', 'risk_score': 88,
-                    'details': f'Vertical jump: {abs(alt - last_f.altitude):.0f} ft'
-                })
-            
-            # Distance Jump
-            if last_f.lat and last_f.lon and f['lat'] and f['lon']:
                 dist = calculate_distance(last_f.lat, last_f.lon, f['lat'], f['lon'])
                 dt = timestamp - last_f.timestamp
                 if dt > 0 and dt < 120: # Within 2 updates
@@ -371,16 +354,21 @@ def api_live():
     LIVE_CACHE[cache_key] = (now, payload)
     
     # Extract flight details from payload
+    flights_raw = payload.get("states", [])
     flights = []
-    for r in payload.get("states",[]):
+    for r in flights_raw:
+        if not r or len(r) < 11: continue
         flights.append({
             'icao24': (r[0] or "").strip(),
             'callsign': (r[1] or "").strip(),
-            'lon': r[5],'lat':r[6],'onGround':bool(r[8]),
-            'velocity': r[9],'track':r[10],
+            'lon': r[5], 'lat': r[6], 'onGround': bool(r[8]),
+            'velocity': r[9], 'track': r[10],
             'altitude': r[13] if len(r) > 13 else r[7] if len(r) > 7 else 0,
             'country': r[2] or "Unknown"
         })
+    
+    # Limit to 200 for free tier performance
+    flights = flights[:200]
     
     # Store flights and detect anomalies - PERFORMANCE OPTIMIZED
     try:
