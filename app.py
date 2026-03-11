@@ -544,10 +544,20 @@ def api_stats():
     return jsonify({"by_type": by_type})
 
 # --- STARTUP ---
-with app.app_context():
-    db.create_all()
-    threading.Thread(target=train_ai_model, daemon=True).start()
+# --- STARTUP ---
+def safe_init():
+    try:
+        with app.app_context():
+            db.create_all()
+            # Start AI training in a separate thread to not block the main process
+            t = threading.Thread(target=train_ai_model, daemon=True)
+            t.start()
+            logger.info("Security Database and AI Engine initialized.")
+    except Exception as e:
+        logger.error(f"Startup Failure: {e}")
+
+safe_init()
 
 if __name__ == '__main__':
-    logger.info(f"Cyber-AVIA Active on port {PORT}.")
+    logger.info(f"Cyber-AVIA ELINT Node Active on port {PORT}.")
     app.run(host=HOST, port=PORT, debug=DEBUG_MODE)

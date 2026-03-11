@@ -8,18 +8,29 @@
 
 :root {
   --bg-dark: #020617;
-  --bg-card: rgba(15, 23, 42, 0.7);
+  --bg-card: rgba(15, 23, 42, 0.85);
   --brand: #22d3ee;
-  --brand-glow: rgba(34, 211, 238, 0.5);
+  --brand-glow: rgba(34, 211, 238, 0.4);
   --danger: #f43f5e;
   --success: #10b981;
   --warning: #f59e0b;
   --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --border: rgba(51, 65, 85, 0.4);
-  --neon-shadow: 0 0 20px var(--brand-glow);
-  --glass: rgba(15, 23, 42, 0.4);
+  --text-muted: #64748b;
+  --border: rgba(34, 211, 238, 0.2);
+  --neon-shadow: 0 0 15px var(--brand-glow);
 }
+
+@keyframes pulse-danger {
+  0% { transform: scale(1); opacity: 1; text-shadow: 0 0 5px #f43f5e; }
+  50% { transform: scale(1.3); opacity: 0.7; text-shadow: 0 0 20px #f43f5e; }
+  100% { transform: scale(1); opacity: 1; text-shadow: 0 0 5px #f43f5e; }
+}
+
+.pulse-danger {
+  animation: pulse-danger 1.5s infinite ease-in-out;
+  color: #f43f5e !important;
+}
+
 
 * {
   box-sizing: border-box;

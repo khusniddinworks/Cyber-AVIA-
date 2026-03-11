@@ -20,19 +20,19 @@
     <!-- LEFT PANEL: Telemetry -->
     <aside class="panel">
       <div class="card">
-        <div class="card-title">Live Pulse</div>
+        <div class="card-title">ELINT Pulse</div>
         <div id="livePulse" class="stat-value">—</div>
-        <div class="stat-label">ACTIVE AIRCRAFT TRACKED</div>
+        <div class="stat-label">ACTIVE SENSORS ACQUIRED</div>
       </div>
 
       <div class="card">
-        <div class="card-title">Threat Level</div>
+        <div class="card-title">Threat Matrix</div>
         <div id="anomalyCount" class="stat-value" style="color: var(--danger);">0</div>
-        <div class="stat-label">ANOMALIES DETECTED</div>
+        <div class="stat-label">CRITICAL ANOMALIES</div>
       </div>
 
       <div class="card" style="flex: 1; min-height: 120px;">
-        <div class="card-title">System Log</div>
+        <div class="card-title">Security Audit Trail</div>
         <div id="securityLogs" style="overflow-y: auto; max-height: 300px;">
           <div class="log-line system">[BOOT] Cyber-AVIA v2.0 initializing...</div>
         </div>
@@ -55,9 +55,9 @@
     <!-- RIGHT PANEL: Intelligence -->
     <aside class="panel">
       <div class="card">
-        <div class="card-title">Aircraft Lookup</div>
-        <input type="text" id="icaoInput" class="cyber-input" placeholder="ICAO HEX (e.g. 4B0011)" maxlength="6">
-        <button onclick="searchICAO()" class="cyber-btn">FIND TARGET</button>
+        <div class="card-title">Intercept Target</div>
+        <input type="text" id="icaoInput" class="cyber-input" placeholder="Callsign or HEX (e.g. THY123)" maxlength="10">
+        <button onclick="searchICAO()" class="cyber-btn">INITIATE LOCK</button>
       </div>
 
       <div id="detailsCard" class="card" style="display: none;">
