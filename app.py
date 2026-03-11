@@ -84,7 +84,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 limiter = Limiter(get_remote_address, app=app, default_limits=["200 per minute"])
 
 # --- SECURITY MIDDLEWARE (Expert Level) ---
