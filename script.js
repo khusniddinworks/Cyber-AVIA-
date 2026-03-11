@@ -225,11 +225,36 @@ function addLog(type, msg) {
 // ---- LOOKUP ----
 async function searchICAO() {
   const icao = document.getElementById("icaoInput").value.trim().toLowerCase();
+  const detailsCard = document.getElementById("detailsCard");
+  const detailsContent = document.getElementById("detailsContent");
+
   if (icao.length !== 6) {
-    addLog("warn", "ICAO must be 6-character HEX code.");
+    addLog("warn", "ICAO must be a 6-character HEX code (e.g., 4B0011)");
     return;
   }
-  addLog("system", `Searching for target ${icao.toUpperCase()}...`);
-  document.getElementById("detailsCard").style.display = "block";
-  document.getElementById("detailsContent").innerHTML = `<div class="log-line system">Fetching intel for ${icao.toUpperCase()}...</div>`;
+
+  addLog("system", `Intercepting data for target ${icao.toUpperCase()}...`);
+
+  // Search in currently mapped markers
+  if (planeMarkers.has(icao)) {
+    const marker = planeMarkers.get(icao);
+    map.setView(marker.getLatLng(), 11); // Professional zoom level
+    marker.openPopup();
+
+    // Show Details Intelligence Card
+    detailsCard.style.display = "block";
+    detailsCard.style.animation = "fadeIn 0.5s ease-out";
+
+    // We can't easily extract all data from the Leaflet marker popup HTML, 
+    // but we can show a success message or trigger a re-fetch.
+    addLog("info", `Target ${icao.toUpperCase()} localized. Visual contact established.`);
+    detailsContent.innerHTML = `
+      <div class="log-line info">TARGET: ${icao.toUpperCase()}</div>
+      <div class="log-line">STATUS: ACTIVE & TRACKED</div>
+      <div class="log-line">VECTOR: ESTABLISHED</div>
+    `;
+  } else {
+    addLog("error", `Target ${icao.toUpperCase()} not found in current sector.`);
+    detailsCard.style.display = "none";
+  }
 }
