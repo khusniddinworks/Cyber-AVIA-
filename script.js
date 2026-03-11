@@ -1,4 +1,4 @@
-﻿let map, planeGroup, socket;
+let map, planeGroup, socket;
 let updateInterval;
 const planeMarkers = new Map(); // Track markers by ICAO
 const planePaths = new Map();   // Track polylines by ICAO
@@ -89,17 +89,22 @@ async function updateStatus() {
     if (data && data.states) { processTelemetry(data); return; }
   } catch (e) { /* silent */ }
 
-  // Multi-region Global Fetch (Client-side)
+  // Multi-region Global Fetch (Client-side) - CORRECT API FORMAT
   try {
     const zones = [
-      "https://api.adsb.lol/v2/lamin/35/lamax/65/lomin/-15/lomax/45",
-      "https://api.adsb.lol/v2/lamin/10/lamax/55/lomin/-130/lomax/-60",
-      "https://api.adsb.lol/v2/lamin/10/lamax/50/lomin/45/lomax/100"
+      "https://api.adsb.lol/v2/lat/48.0/lon/11.0/dist/500",   // Europe
+      "https://api.adsb.lol/v2/lat/40.0/lon/-100.0/dist/500",  // North America
+      "https://api.adsb.lol/v2/lat/25.0/lon/55.0/dist/500",    // Middle East
+      "https://api.adsb.lol/v2/lat/35.0/lon/105.0/dist/500",   // East Asia
+      "https://api.adsb.lol/v2/lat/-25.0/lon/135.0/dist/500",  // Australia
+      "https://api.adsb.lol/v2/lat/5.0/lon/25.0/dist/500"      // Africa
     ];
     const resSet = await Promise.allSettled(zones.map(u => fetch(u).then(r => r.json())));
     const all = new Map();
     resSet.forEach(r => {
-      if (r.status === "fulfilled" && r.value.ac) r.value.ac.forEach(a => { if (a.hex) all.set(a.hex, a); });
+      if (r.status === "fulfilled" && r.value && r.value.ac) {
+        r.value.ac.forEach(a => { if (a.hex && a.lat && a.lon) all.set(a.hex, a); });
+      }
     });
     const states = Array.from(all.values()).map(a => [a.hex, a.flight, a.r, 0, 0, a.lon, a.lat, a.alt_baro, 0, a.gs, a.track]);
     processTelemetry({ states, provider: `Global-Sat (${all.size} targets)` });
