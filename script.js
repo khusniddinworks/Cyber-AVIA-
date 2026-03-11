@@ -177,9 +177,11 @@ function renderPlanes(states) {
       m.setIcon(icon);
       m.setPopupContent(popupHtml);
       m.fullData = { hex: key, call: (call || '').toLowerCase().trim() }; // for improved search
+      m.threatLevel = risk.level;
     } else {
       const m = L.marker([lat, lon], { icon }).bindPopup(popupHtml, { maxWidth: 300, className: 'cyber-popup' });
       m.fullData = { hex: key, call: (call || '').toLowerCase().trim() };
+      m.threatLevel = risk.level;
       fresh.push(m);
       planeMarkers.set(key, m);
     }
@@ -225,6 +227,15 @@ function renderPlanes(states) {
   }
   if (fresh.length) planeGroup.addLayers(fresh);
   document.getElementById("livePulse").innerText = planeMarkers.size;
+  
+  // Update Threat Matrix count
+  let criticalCount = 0;
+  for (let m of planeMarkers.values()) {
+    if (m.threatLevel === 'CRITICAL') {
+      criticalCount++;
+    }
+  }
+  document.getElementById("anomalyCount").innerText = criticalCount;
 }
 
 // ---- IMPROVED SEARCH (Callsign + HEX) ----
