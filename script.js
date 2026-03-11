@@ -1,5 +1,6 @@
 ﻿let map, planeGroup;
 let updateInterval;
+const planeMarkers = new Map(); // Track planes by ICAO for smooth movement
 
 // ---- STARTUP ----
 document.addEventListener("DOMContentLoaded", () => {
@@ -35,23 +36,26 @@ function initMap() {
 
   // Marker clustering for thousands of planes
   planeGroup = L.markerClusterGroup({
-    maxClusterRadius: 45,
-    spiderfyOnMaxZoom: true,
+    maxClusterRadius: 50,
+    disableClusteringAtZoom: 8,
+    spiderfyOnMaxZoom: false,
     showCoverageOnHover: false,
+    chunkedLoading: true,
     iconCreateFunction: function (cluster) {
       const count = cluster.getChildCount();
-      let size = 'small', radius = 30;
-      if (count > 100) { size = 'large'; radius = 50; }
-      else if (count > 30) { size = 'medium'; radius = 40; }
+      let radius = 30;
+      if (count > 500) radius = 55;
+      else if (count > 100) radius = 45;
+      else if (count > 30) radius = 38;
       return L.divIcon({
         html: `<div style="
           width:${radius}px; height:${radius}px; 
-          background: rgba(34,211,238,0.25); 
+          background: rgba(34,211,238,0.2); 
           border: 2px solid #22d3ee; 
           border-radius: 50%; 
-          display: flex; align-items: center; justify-content: center;
-          color: #22d3ee; font-weight: 800; font-size: ${radius / 3}px;
-          font-family: 'JetBrains Mono', monospace;
+          display:flex; align-items:center; justify-content:center;
+          color:#22d3ee; font-weight:800; font-size:${Math.max(10, radius / 3)}px;
+          font-family:'JetBrains Mono',monospace;
           box-shadow: 0 0 15px rgba(34,211,238,0.4);
         ">${count}</div>`,
         className: 'cyber-cluster',
@@ -65,7 +69,7 @@ function initMap() {
 // ---- TELEMETRY ----
 function startUpdates() {
   updateStatus();
-  updateInterval = setInterval(updateStatus, 15000);
+  updateInterval = setInterval(updateStatus, 10000);
 }
 
 async function updateStatus() {
@@ -127,35 +131,63 @@ function processTelemetry(data) {
   }).catch(() => { });
 }
 
-// ---- RENDER PLANES ----
+// ---- RENDER PLANES (Smooth Movement) ----
 function renderPlanes(states) {
   if (!planeGroup) return;
-  planeGroup.clearLayers();
 
-  states.slice(0, 500).forEach(s => {
+  const currentICAOs = new Set();
+  const newMarkers = [];
+
+  states.slice(0, 1500).forEach(s => {
     const [icao, call, country, , , lon, lat, , , vel, trk] = s;
-    if (!lat || !lon) return;
+    if (!lat || !lon || !icao) return;
+
+    const key = icao.toLowerCase();
+    currentICAOs.add(key);
 
     const angle = (trk || 0) - 45;
     const speed = typeof vel === 'number' ? vel : 0;
-    const color = speed > 300 ? "#f43f5e" : "#22d3ee"; // Red if supersonic
-
+    const color = speed > 300 ? "#f43f5e" : "#22d3ee";
     const html = `<div class="plane-marker" style="transform:rotate(${angle}deg); color:${color}; filter:drop-shadow(0 0 6px ${color}); cursor:pointer;">✈</div>`;
     const icon = L.divIcon({ html, className: 'plane-icon-div', iconSize: [22, 22] });
 
-    L.marker([lat, lon], { icon })
-      .bindPopup(`
-        <div style="min-width:140px; font-family:'Inter',sans-serif;">
-          <div style="font-weight:800; font-size:1.1rem; color:var(--brand); margin-bottom:6px;">${(call || 'UNKNOWN').trim()}</div>
-          <div style="font-size:0.8rem; line-height:1.7; border-top:1px solid var(--border); padding-top:6px;">
-            <b>HEX:</b> ${(icao || '').toUpperCase()}<br>
-            <b>SPEED:</b> ${Math.round(speed * 3.6)} km/h<br>
-            <b>ORIGIN:</b> ${country || 'N/A'}
-          </div>
+    const popupContent = `
+      <div style="min-width:140px; font-family:'Inter',sans-serif;">
+        <div style="font-weight:800; font-size:1.1rem; color:var(--brand); margin-bottom:6px;">${(call || 'UNKNOWN').trim()}</div>
+        <div style="font-size:0.8rem; line-height:1.7; border-top:1px solid var(--border); padding-top:6px;">
+          <b>HEX:</b> ${(icao || '').toUpperCase()}<br>
+          <b>SPEED:</b> ${Math.round(speed * 3.6)} km/h<br>
+          <b>ORIGIN:</b> ${country || 'N/A'}
         </div>
-      `)
-      .addTo(planeGroup);
+      </div>`;
+
+    if (planeMarkers.has(key)) {
+      // EXISTING plane: smoothly slide to new position
+      const existing = planeMarkers.get(key);
+      existing.setLatLng([lat, lon]);
+      existing.setIcon(icon);
+      existing.setPopupContent(popupContent);
+    } else {
+      // NEW plane: create marker
+      const marker = L.marker([lat, lon], { icon });
+      marker.bindPopup(popupContent);
+      newMarkers.push(marker);
+      planeMarkers.set(key, marker);
+    }
   });
+
+  // Remove planes that disappeared from radar
+  for (const [key, marker] of planeMarkers) {
+    if (!currentICAOs.has(key)) {
+      planeGroup.removeLayer(marker);
+      planeMarkers.delete(key);
+    }
+  }
+
+  // Batch add only NEW markers
+  if (newMarkers.length > 0) {
+    planeGroup.addLayers(newMarkers);
+  }
 }
 
 // ---- RENDER ALERTS ----
