@@ -40,27 +40,39 @@ function initMap() {
   map.addLayer(planeGroup);
 }
 
-// ---- WebSocket ENGINE ----
+// ---- WebSocket & POLLING HYBRID ENGINE ----
 function startUpdates() {
-  socket = io();
+  // 1. WebSocket Attempt
+  socket = io({ transports: ['websocket', 'polling'] });
 
   socket.on('connect', () => {
-    addLog("info", "Secure-Socket link established.");
+    addLog("info", "Real-time link synchronized.");
+    if (updateInterval) clearInterval(updateInterval); // Stop polling if WS is alive
   });
 
   socket.on('plane_update', (data) => {
-    if (data && data.states) {
-      processTelemetry(data);
-    }
+    if (data && data.states) processTelemetry(data);
   });
 
-  socket.on('system_log', (data) => {
-    addLog("system", data.msg);
-  });
+  socket.on('system_log', (data) => addLog("system", data.msg));
 
   socket.on('disconnect', () => {
-    addLog("error", "Socket link severed. Attempting rejoin...");
+    addLog("warn", "Socket detached. Engaging pulse-polling...");
+    startPolling();
   });
+
+  socket.on('connect_error', () => {
+    if (!updateInterval) startPolling();
+  });
+
+  // 2. Initial Fetch + Polling Fallback
+  updateStatus();
+  startPolling();
+}
+
+function startPolling() {
+  if (updateInterval) clearInterval(updateInterval);
+  updateInterval = setInterval(updateStatus, 15000);
 }
 
 // updateStatus kept only as one-time initialization if needed

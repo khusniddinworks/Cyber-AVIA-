@@ -570,31 +570,38 @@ def api_stats():
     by_type = db.session.query(Anomaly.type, func.count()).group_by(Anomaly.type).all()
     return jsonify({"by_type": by_type})
 
+# --- GLOBAL INIT (For Gunicorn) ---
+with app.app_context():
+    db.create_all()
+
 # --- REAL-TIME STREAMING THREAD ---
+streamer_started = False
+streamer_lock = threading.Lock()
+
 def telemetry_streamer():
     """Background task to fetch and broadcast telemetry to all clients."""
     while True:
         try:
-            # We fetch a large world segment to keep it live
-            payload = get_live_data_parallel({"lamin":-90, "lamax":90, "lomin":-180, "lomax":180})
+            # Global fetch
+            payload = get_live_data_parallel({})
             if payload and "states" in payload:
                 socketio.emit('plane_update', payload)
         except Exception as e:
             logger.error(f"Streamer Error: {e}")
-        time.sleep(5) # Real-time update every 5 seconds
+        socketio.sleep(8) # Optimization: Update every 8s
 
 @socketio.on('connect')
 def handle_connect():
+    global streamer_started
+    with streamer_lock:
+        if not streamer_started:
+            socketio.start_background_task(telemetry_streamer)
+            streamer_started = True
+    
     logger.info("Intel client connected via Secure-Socket.")
     emit('system_log', {'msg': 'Real-time telemetry link established.'})
 
 # --- RUNTIME ---
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    
-    # Start background streamer
-    socketio.start_background_task(telemetry_streamer)
-    
-    logger.info(f"Cyber-AVIA Active on port {PORT}. Real-Time Engine engaged.")
+    logger.info(f"Cyber-AVIA Manual Start on port {PORT}.")
     socketio.run(app, host=HOST, port=PORT, debug=DEBUG_MODE)
