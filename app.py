@@ -287,51 +287,64 @@ def fetch_adsb_aircraft(lat, lon, dist_km):
 def detect_anomalies(flights, timestamp):
     anomalies = []
     seen_icao = set()
+    current_icaos = set()
+    
     for f in flights:
         icao = f.get('icao24','').lower()
-        speed_kmh = (f.get('velocity') or 0) * 3.6
+        if not icao: continue
+        current_icaos.add(icao)
         
-        # 1. High Speed
-        if speed_kmh > 1200:
+        speed_kmh = (f.get('velocity') or 0) * 3.6
+        alt = f.get('altitude') or 0
+        
+        # 1. High Speed (Supersonic or False Signal)
+        if speed_kmh > 1250:
             anomalies.append({
-                'icao24': icao, 'type': 'high_speed', 'severity': 'high', 'risk_score': 90,
-                'details': f'Impossible speed: {speed_kmh:.0f} km/h'
+                'icao24': icao, 'type': 'high_speed_anom', 'severity': 'high', 'risk_score': 92,
+                'details': f'Extreme vector: {speed_kmh:.0f} km/h'
             })
         
-        # 2. Duplicate ICAO
+        # 2. Duplicate ICAO (Identity Spoofing)
         if icao in seen_icao:
             anomalies.append({
-                'icao24': icao, 'type': 'duplicate_icao', 'severity': 'high', 'risk_score': 95,
-                'details': 'Ghost aircraft: duplicate ICAO signal'
+                'icao24': icao, 'type': 'signal_spoof', 'severity': 'critical', 'risk_score': 98,
+                'details': 'Ghost signature: Identity duplication'
             })
         seen_icao.add(icao)
 
-        # 3. Sudden Location Jump
+        # 3. Sudden Vector Jumps (Teleportation or Radar Error)
         last_f = Flight.query.filter_by(icao24=icao).order_by(Flight.timestamp.desc()).first()
-        if last_f and last_f.lat and last_f.lon and f['lat'] and f['lon']:
-            dist = calculate_distance(last_f.lat, last_f.lon, f['lat'], f['lon'])
-            dt = timestamp - last_f.timestamp
-            if dt > 0:
-                calc_speed = (dist / dt) * 3600 # km/h
-                if calc_speed > 1500 and dist > 50: # Jump more than 50km at insane speed
-                    anomalies.append({
-                        'icao24': icao, 'type': 'location_jump', 'severity': 'high', 'risk_score': 85,
-                        'details': f'Sudden jump: {dist:.1f} km in {dt:.0f}s'
-                    })
+        if last_f:
+            # Altitude Jump (Spoofing indicator)
+            if last_f.altitude and alt and abs(alt - last_f.altitude) > 10000: # 10k ft jump
+                anomalies.append({
+                    'icao24': icao, 'type': 'altitude_tamper', 'severity': 'high', 'risk_score': 88,
+                    'details': f'Vertical jump: {abs(alt - last_f.altitude):.0f} ft'
+                })
+            
+            # Distance Jump
+            if last_f.lat and last_f.lon and f['lat'] and f['lon']:
+                dist = calculate_distance(last_f.lat, last_f.lon, f['lat'], f['lon'])
+                dt = timestamp - last_f.timestamp
+                if dt > 0 and dt < 120: # Within 2 updates
+                    calc_speed = (dist / dt) * 3600
+                    if calc_speed > 2000:
+                        anomalies.append({
+                            'icao24': icao, 'type': 'vector_jump', 'severity': 'high', 'risk_score': 85,
+                            'details': f'Incoherent jump: {dist:.1f} km at {calc_speed:.0f} km/h'
+                        })
 
-    # 4. Signal Disappearance
-    # (Checking for flights that were present in the last 5 mins but missing now)
-    five_min_ago = timestamp - 300
-    missing_flights = db.session.query(Flight.icao24).filter(Flight.timestamp > five_min_ago, Flight.timestamp < timestamp - 60).distinct().all()
-    current_icaos = {f['icao24'].lower() for f in flights}
-    for (m_icao,) in missing_flights:
+    # 4. Signal Loss Tracking (Selective Intelligence)
+    # Only alert for significant signal loss (flights seen in last 2m)
+    two_min_ago = timestamp - 120
+    lost = db.session.query(Flight.icao24).filter(Flight.timestamp > two_min_ago - 60, Flight.timestamp < two_min_ago).distinct().all()
+    for (m_icao,) in lost:
         if m_icao.lower() not in current_icaos:
-            # Check if we already alerted for this recently
-            exists = Anomaly.query.filter_by(icao24=m_icao, type='signal_loss').filter(Anomaly.detected_at > five_min_ago).first()
+            exists = Anomaly.query.filter_by(icao24=m_icao, type='signal_loss').filter(Anomaly.detected_at > two_min_ago).first()
             if not exists:
                 anomalies.append({
-                    'icao24': m_icao, 'type': 'signal_loss', 'severity': 'medium', 'risk_score': 50,
-                    'details': 'Signal lost for more than 60 seconds'
+                    'icao24': m_icao, 'type': 'signal_loss', 'severity': 'medium', 'risk_score': 60,
+                    'details': 'Target lost contact'
                 })
     
     return anomalies
