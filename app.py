@@ -1,6 +1,3 @@
-from gevent import monkey
-monkey.patch_all()
-import gevent
 
 import os
 import time
@@ -15,7 +12,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import ProxyHandler, Request, build_opener
 from flask import Flask, request, jsonify, send_from_directory, abort, make_response
-from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -84,7 +80,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 limiter = Limiter(get_remote_address, app=app, default_limits=["200 per minute"])
 
 # --- SECURITY MIDDLEWARE (Expert Level) ---
@@ -101,11 +96,11 @@ def apply_security_headers(response):
     # Modernized CSP
     csp = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://cdn.socket.io; "
+        "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
         "img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com https://server.arcgisonline.com https://*.basemaps.cartocdn.com; "
         "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "connect-src 'self' ws: wss: https://opensky-network.org https://api.adsb.lol; "
+        "connect-src 'self' https://opensky-network.org https://api.adsb.lol; "
         "frame-ancestors 'none';"
     )
     response.headers['Content-Security-Policy'] = csp
@@ -367,18 +362,12 @@ def get_live_data_parallel(params):
     if params:
         opensky_url += "?" + urlencode(params)
     
-    # Gevent-friendly parallel execution
-    from gevent.pool import Pool
-    pool = Pool(size=2)
-    t1 = pool.spawn(try_opensky_live, opensky_url)
-    t2 = pool.spawn(try_adsb_live, params)
-    
     # Priority 1: OpenSky
-    res1 = t1.get()
+    res1 = try_opensky_live(opensky_url)
     if res1 and res1.get("states"): return res1
     
     # Priority 2: ADSB.lol
-    res2 = t2.get()
+    res2 = try_adsb_live(params)
     if res2 and res2.get("states"): return res2
     
     return get_fallback_data()
@@ -572,36 +561,11 @@ def api_stats():
     by_type = db.session.query(Anomaly.type, func.count()).group_by(Anomaly.type).all()
     return jsonify({"by_type": by_type})
 
-# --- GLOBAL INIT (For Gunicorn) ---
+# --- STARTUP ---
 with app.app_context():
     db.create_all()
+    threading.Thread(target=train_ai_model, daemon=True).start()
 
-# --- REAL-TIME STREAMING THREAD ---
-streamer_started = False
-streamer_lock = threading.Lock()
-
-def telemetry_streamer():
-    """Background task to fetch and broadcast telemetry to all clients."""
-    while True:
-        try:
-            payload = get_live_data_parallel({"lamin":-90, "lamax":90, "lomin":-180, "lomax":180})
-            if payload and "states" in payload:
-                socketio.emit('plane_update', payload)
-        except Exception as e:
-            logger.error(f"Streamer Error: {e}")
-        gevent.sleep(10) # Using gevent.sleep
-
-@socketio.on('connect')
-def handle_connect():
-    global streamer_started
-    if not streamer_started:
-        socketio.start_background_task(telemetry_streamer)
-        streamer_started = True
-    
-    logger.info("Intel client connected via Secure-Socket.")
-    emit('system_log', {'msg': 'Real-time telemetry link established.'})
-
-# --- RUNTIME ---
 if __name__ == '__main__':
-    logger.info(f"Cyber-AVIA Manual Start on port {PORT}.")
-    socketio.run(app, host=HOST, port=PORT, debug=DEBUG_MODE)
+    logger.info(f"Cyber-AVIA Active on port {PORT}.")
+    app.run(host=HOST, port=PORT, debug=DEBUG_MODE)

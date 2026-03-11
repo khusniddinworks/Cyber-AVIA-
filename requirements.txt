@@ -9,6 +9,3 @@ requests
 gunicorn
 psycopg2-binary
 pytest
-flask-socketio
-gevent
-gevent-websocket
