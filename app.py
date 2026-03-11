@@ -380,6 +380,7 @@ def api_live():
     payload = get_live_data_parallel(params)
     LIVE_CACHE[cache_key] = (now, payload)
     
+    # Extract flight details from payload
     flights = []
     for r in payload.get("states",[]):
         flights.append({
@@ -391,22 +392,10 @@ def api_live():
             'country': r[2] or "Unknown"
         })
     
-    # Store flights and detect anomalies in background
+    # Store flights and detect anomalies - PERFORMANCE OPTIMIZED
     try:
-        for f in flights:
-            rec = Flight(
-                icao24=f['icao24'],country=f['country'],
-                lon=f['lon'],lat=f['lat'],altitude=f['altitude'],
-                velocity=f['velocity'],track=f['track'],on_ground=f['onGround'],
-                timestamp=now
-            )
-            rec.callsign = f['callsign']
-            db.session.add(rec)
-        db.session.commit()
-        
+        # Only store anomalies in the database to save storage and improve speed
         anomalies = detect_anomalies(flights, now)
-        
-        # AI Anomaly Detection
         try:
             ai_anomalies = detect_ai_anomalies(flights)
             anomalies.extend(ai_anomalies)
@@ -419,11 +408,23 @@ def api_live():
                 severity=a['severity'], risk_score=a.get('risk_score', 0),
                 details=a['details'], detected_at=now
             ))
-        if anomalies:
-            db.session.commit()
+        
+        # Keep only a sample of normal flights in DB to avoid bloat
+        # In professional systems, we only log targets of interest (TOI)
+        for f in flights[:50]: # Only top 50 to track history
+            rec = Flight(
+                icao24=f['icao24'], country=f['country'],
+                lon=f['lon'], lat=f['lat'], altitude=f['altitude'],
+                velocity=f['velocity'], track=f['track'], on_ground=f['onGround'],
+                timestamp=now
+            )
+            rec.callsign = f['callsign']
+            db.session.add(rec)
+            
+        db.session.commit()
     except Exception as e:
         db.session.rollback()
-        logger.error(f"DB write error: {e}")
+        logger.error(f"Post-processing error: {e}")
     
     return jsonify(payload)
 
