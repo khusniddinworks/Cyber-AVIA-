@@ -7,10 +7,12 @@ import math
 import json
 import base64
 import logging
+import threading
+import requests
+import numpy as np
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import ProxyHandler, Request, build_opener
-
 from flask import Flask, request, jsonify, send_from_directory, abort, make_response
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
@@ -18,12 +20,8 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from sqlalchemy import func
 from sklearn.ensemble import IsolationForest
-import numpy as np
-from concurrent.futures import ThreadPoolExecutor
-import threading
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-import requests
 
 # Enterprise Logging Configuration
 logging.basicConfig(
@@ -368,18 +366,19 @@ def get_live_data_parallel(params):
     if params:
         opensky_url += "?" + urlencode(params)
     
-    with ThreadPoolExecutor(max_workers=2) as ex:
-        f1 = ex.submit(try_opensky_live, opensky_url)
-        f2 = ex.submit(try_adsb_live, params)
-        
-        # Priority 1: OpenSky
-        res1 = f1.result()
-        if res1 and res1.get("states"): return res1
-        
-        # Priority 2: ADSB.lol
-        res2 = f2.result()
-        if res2 and res2.get("states"): return res2
-        
+    # Eventlet-friendly parallel execution
+    pool = eventlet.GreenPool(size=2)
+    t1 = pool.spawn(try_opensky_live, opensky_url)
+    t2 = pool.spawn(try_adsb_live, params)
+    
+    # Priority 1: OpenSky
+    res1 = t1.wait()
+    if res1 and res1.get("states"): return res1
+    
+    # Priority 2: ADSB.lol
+    res2 = t2.wait()
+    if res2 and res2.get("states"): return res2
+    
     return get_fallback_data()
 
 @app.route('/api/live')
